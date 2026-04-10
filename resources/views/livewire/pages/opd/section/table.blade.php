@@ -1,0 +1,54 @@
+<div>
+    <x-nawasara-ui::filter-bar searchPlaceholder="Cari kode, nama OPD..." searchModel="search" />
+
+    <x-nawasara-ui::table :headers="['#', 'Kode', 'Nama OPD', 'PIC', 'Aset', 'Kontak', '']" title="Data OPD">
+        <x-slot:table>
+            @forelse ($this->items as $item)
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-neutral-400">
+                        {{ $item->id }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-800 dark:text-neutral-200">
+                        {{ $item->code }}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-800 dark:text-neutral-200">
+                        {{ $item->name }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-neutral-200">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                            {{ $item->pics_count }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-neutral-200">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                            {{ $item->assets_count }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-neutral-400">
+                        {{ $item->email ?? '-' }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                        <div class="flex items-center gap-2 justify-end">
+                            <a href="{{ route('nawasara-registry.opd.edit', $item->id) }}" wire:navigate
+                                class="text-blue-600 hover:underline text-xs">Edit</a>
+                            <button type="button"
+                                wire:click="delete({{ $item->id }})"
+                                wire:confirm="Yakin hapus OPD {{ $item->name }}? Semua PIC dan aset terkait akan ikut terhapus."
+                                class="text-red-600 hover:underline text-xs">Hapus</button>
+                        </div>
+                    </td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="7" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-neutral-400">
+                        Belum ada data OPD.
+                    </td>
+                </tr>
+            @endforelse
+        </x-slot:table>
+
+        <x-slot:footer>
+            {{ $this->items->links() }}
+        </x-slot:footer>
+    </x-nawasara-ui::table>
+</div>
