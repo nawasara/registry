@@ -95,19 +95,21 @@ class Table extends Component
             'assetTicketRef' => 'nullable|max:100',
         ]);
 
-        Asset::updateOrCreate(
-            ['id' => $this->editingId],
-            [
-                'opd_id' => $this->assetOpdId,
-                'pic_id' => $this->assetPicId ?: null,
-                'type' => $this->assetType,
-                'identifier' => $this->assetIdentifier,
-                'status' => $this->assetStatus,
-                'notes' => $this->assetNotes ?: null,
-                'ticket_ref' => $this->assetTicketRef ?: null,
-                'registered_at' => $this->editingId ? undefined : now(),
-            ]
-        );
+        $payload = [
+            'opd_id' => $this->assetOpdId,
+            'pic_id' => $this->assetPicId ?: null,
+            'type' => $this->assetType,
+            'identifier' => $this->assetIdentifier,
+            'status' => $this->assetStatus,
+            'notes' => $this->assetNotes ?: null,
+            'ticket_ref' => $this->assetTicketRef ?: null,
+        ];
+
+        if (! $this->editingId) {
+            $payload['registered_at'] = now();
+        }
+
+        Asset::updateOrCreate(['id' => $this->editingId], $payload);
 
         toaster_success($this->editingId ? 'Aset berhasil diperbarui' : 'Aset berhasil ditambahkan');
         $this->resetModal();
