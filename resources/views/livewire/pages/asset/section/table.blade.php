@@ -83,71 +83,63 @@
     </x-nawasara-ui::table>
 
     {{-- Modal Create/Edit --}}
-    @if ($showModal)
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" wire:click.self="$set('showModal', false)">
-            <div class="bg-white dark:bg-neutral-800 rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
-                <h3 class="text-lg font-semibold text-gray-800 dark:text-neutral-200 mb-4">
-                    {{ $editingId ? 'Edit Aset' : 'Tambah Aset' }}
-                </h3>
-
-                <form wire:submit="saveAsset" class="space-y-4">
-                    <div>
-                        <x-nawasara-ui::form.label value="OPD" />
-                        <x-nawasara-ui::form.select wire:model.live="assetOpdId" name="assetOpdId" placeholder="Pilih OPD">
-                            @foreach ($this->opdList as $opd)
-                                <option value="{{ $opd->id }}">{{ $opd->code }} - {{ $opd->name }}</option>
-                            @endforeach
-                        </x-nawasara-ui::form.select>
-                    </div>
-
-                    @if ($assetOpdId)
-                        <div>
-                            <x-nawasara-ui::form.label value="PIC (opsional)" />
-                            <x-nawasara-ui::form.select wire:model="assetPicId" placeholder="Pilih PIC">
-                                @foreach ($this->picList as $pic)
-                                    <option value="{{ $pic->id }}">{{ $pic->name }} {{ $pic->position ? "({$pic->position})" : '' }}</option>
-                                @endforeach
-                            </x-nawasara-ui::form.select>
-                        </div>
-                    @endif
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <x-nawasara-ui::form.label value="Tipe Aset" />
-                            <x-nawasara-ui::form.select wire:model="assetType" name="assetType" placeholder="Pilih tipe">
-                                @foreach (config('nawasara-registry.asset_types', []) as $value => $label)
-                                    <option value="{{ $value }}">{{ $label }}</option>
-                                @endforeach
-                            </x-nawasara-ui::form.select>
-                        </div>
-                        <div>
-                            <x-nawasara-ui::form.label value="Status" />
-                            <x-nawasara-ui::form.select wire:model="assetStatus" name="assetStatus" :placeholder="false">
-                                @foreach (config('nawasara-registry.asset_statuses', []) as $value => $label)
-                                    <option value="{{ $value }}">{{ $label }}</option>
-                                @endforeach
-                            </x-nawasara-ui::form.select>
-                        </div>
-                    </div>
-
-                    <x-nawasara-ui::form.input label="Identifier" placeholder="portal.dinasX.go.id"
-                        wire:model="assetIdentifier" useError errorVariable="assetIdentifier" />
-
-                    <x-nawasara-ui::form.input label="Referensi Ticket (opsional)" placeholder="#TKT-2026-001"
-                        wire:model="assetTicketRef" />
-
-                    <x-nawasara-ui::form.textarea label="Catatan (opsional)" placeholder="Catatan tambahan..."
-                        wire:model="assetNotes" />
-
-                    <div class="flex justify-end gap-3 pt-2">
-                        <button type="button" wire:click="$set('showModal', false)"
-                            class="py-2.5 px-4 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 hover:bg-gray-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white">
-                            Batal
-                        </button>
-                        <x-nawasara-ui::button type="submit" color="primary">Simpan</x-nawasara-ui::button>
-                    </div>
-                </form>
+    <x-nawasara-ui::modal wire:model="showModal" :title="$editingId ? 'Edit Aset' : 'Tambah Aset'">
+        <form wire:submit="saveAsset" class="space-y-4">
+            <div>
+                <x-nawasara-ui::form.label value="OPD" />
+                <x-nawasara-ui::form.select wire:model.live="assetOpdId" name="assetOpdId" placeholder="Pilih OPD">
+                    @foreach ($this->opdList as $opd)
+                        <option value="{{ $opd->id }}">{{ $opd->code }} - {{ $opd->name }}</option>
+                    @endforeach
+                </x-nawasara-ui::form.select>
             </div>
-        </div>
-    @endif
+
+            @if ($assetOpdId)
+                <div>
+                    <x-nawasara-ui::form.label value="PIC (opsional)" />
+                    <x-nawasara-ui::form.select wire:model="assetPicId" placeholder="Pilih PIC">
+                        @foreach ($this->picList as $pic)
+                            <option value="{{ $pic->id }}">{{ $pic->name }} {{ $pic->position ? "({$pic->position})" : '' }}</option>
+                        @endforeach
+                    </x-nawasara-ui::form.select>
+                </div>
+            @endif
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <x-nawasara-ui::form.label value="Tipe Aset" />
+                    <x-nawasara-ui::form.select wire:model="assetType" name="assetType" placeholder="Pilih tipe">
+                        @foreach (config('nawasara-registry.asset_types', []) as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </x-nawasara-ui::form.select>
+                </div>
+                <div>
+                    <x-nawasara-ui::form.label value="Status" />
+                    <x-nawasara-ui::form.select wire:model="assetStatus" name="assetStatus" :placeholder="false">
+                        @foreach (config('nawasara-registry.asset_statuses', []) as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </x-nawasara-ui::form.select>
+                </div>
+            </div>
+
+            <x-nawasara-ui::form.input label="Identifier" placeholder="portal.dinasX.go.id"
+                wire:model="assetIdentifier" useError errorVariable="assetIdentifier" />
+
+            <x-nawasara-ui::form.input label="Referensi Ticket (opsional)" placeholder="#TKT-2026-001"
+                wire:model="assetTicketRef" />
+
+            <x-nawasara-ui::form.textarea label="Catatan (opsional)" placeholder="Catatan tambahan..."
+                wire:model="assetNotes" />
+
+            <x-slot:footer>
+                <button type="button" wire:click="$set('showModal', false)"
+                    class="py-2.5 px-4 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 hover:bg-gray-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white">
+                    Batal
+                </button>
+                <x-nawasara-ui::button type="submit" color="primary">Simpan</x-nawasara-ui::button>
+            </x-slot:footer>
+        </form>
+    </x-nawasara-ui::modal>
 </div>
