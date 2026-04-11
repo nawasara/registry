@@ -26,7 +26,7 @@
         </x-slot:chips>
     </x-nawasara-ui::filter-bar>
 
-    <x-nawasara-ui::table :headers="['#', 'Identifier', 'Tipe', 'OPD', 'PIC', 'Status', '']" title="Daftar Aset Digital">
+    <x-nawasara-ui::table :headers="['#', 'Identifier', 'Tipe', 'OPD', 'PIC', 'Status', 'Dibuat', '']" title="Daftar Aset Digital">
         <x-slot:table>
             @forelse ($this->items as $item)
                 <tr>
@@ -57,6 +57,9 @@
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $statusClass }}">
                             {{ $item->status_label }}
                         </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-neutral-400">
+                        {{ $item->created_at->format('d M Y') }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                         <x-nawasara-ui::dropdown-menu-action :id="$item->id" :items="[

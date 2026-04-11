@@ -1,7 +1,7 @@
 <div>
     <x-nawasara-ui::filter-bar searchPlaceholder="Cari kode, nama OPD..." searchModel="search" />
 
-    <x-nawasara-ui::table :headers="['#', 'Kode', 'Nama OPD', 'PIC', 'Aset', 'Kontak', '']" title="Data OPD">
+    <x-nawasara-ui::table :headers="['#', 'Kode', 'Nama OPD', 'PIC', 'Aset', 'Kontak', 'Dibuat', '']" title="Data OPD">
         <x-slot:table>
             @forelse ($this->items as $item)
                 <tr>
@@ -26,6 +26,9 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-neutral-400">
                         {{ $item->email ?? '-' }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-neutral-400">
+                        {{ $item->created_at->format('d M Y') }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                         <x-nawasara-ui::dropdown-menu-action :id="$item->id" :items="[
