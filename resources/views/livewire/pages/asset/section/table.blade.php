@@ -59,10 +59,10 @@
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
-                        <div class="flex items-center gap-2 justify-end">
-                            <button wire:click="openEdit({{ $item->id }})" class="text-blue-600 hover:underline text-xs">Edit</button>
-                            <button wire:click="delete({{ $item->id }})" wire:confirm="Yakin hapus aset {{ $item->identifier }}?" class="text-red-600 hover:underline text-xs">Hapus</button>
-                        </div>
+                        <x-nawasara-ui::dropdown-menu-action :id="$item->id" :items="[
+                            ['type' => 'click', 'label' => 'Edit', 'action' => 'openEdit', 'param' => $item->id, 'icon' => 'lucide-pencil'],
+                            ['type' => 'delete', 'label' => 'Hapus', 'name' => $item->identifier],
+                        ]" />
                     </td>
                 </tr>
             @empty

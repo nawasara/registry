@@ -28,14 +28,10 @@
                         {{ $item->email ?? '-' }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
-                        <div class="flex items-center gap-2 justify-end">
-                            <a href="{{ route('nawasara-registry.opd.edit', $item->id) }}" wire:navigate
-                                class="text-blue-600 hover:underline text-xs">Edit</a>
-                            <button type="button"
-                                wire:click="delete({{ $item->id }})"
-                                wire:confirm="Yakin hapus OPD {{ $item->name }}? Semua PIC dan aset terkait akan ikut terhapus."
-                                class="text-red-600 hover:underline text-xs">Hapus</button>
-                        </div>
+                        <x-nawasara-ui::dropdown-menu-action :id="$item->id" :items="[
+                            ['type' => 'href-navigate', 'label' => 'Edit', 'url' => route('nawasara-registry.opd.edit', $item->id), 'icon' => 'lucide-pencil'],
+                            ['type' => 'delete', 'label' => 'Hapus', 'name' => $item->name],
+                        ]" />
                     </td>
                 </tr>
             @empty
