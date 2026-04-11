@@ -5,6 +5,7 @@ namespace Nawasara\Registry\Livewire\Asset\Section;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 use Nawasara\Registry\Models\Asset;
 use Nawasara\Registry\Models\Opd;
 use Nawasara\Registry\Models\Pic;
@@ -63,6 +64,7 @@ class Table extends Component
         return Pic::where('opd_id', $this->assetOpdId)->orderBy('name')->get(['id', 'name', 'position']);
     }
 
+    #[On('openCreateAsset')]
     public function openCreate()
     {
         $this->resetModal();

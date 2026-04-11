@@ -5,14 +5,6 @@
         <x-nawasara-ui::filter-dropdown label="Status" model="statusFilter"
             :items="array_merge(['all' => 'Semua Status'], config('nawasara-registry.asset_statuses', []))" />
 
-        <x-slot:actions>
-            <button type="button" wire:click="openCreate"
-                class="py-2.5 px-4 inline-flex items-center gap-x-1.5 text-sm font-medium rounded-lg border border-transparent bg-green-600 text-white hover:bg-green-700 focus:outline-none focus:bg-green-700">
-                <x-lucide-plus class="size-4" />
-                Tambah Aset
-            </button>
-        </x-slot:actions>
-
         <x-slot:chips>
             @if ($typeFilter)
                 <x-nawasara-ui::filter-chip label="Tipe: {{ config('nawasara-registry.asset_types.'.$typeFilter, $typeFilter) }}" model="typeFilter" />
@@ -84,7 +76,7 @@
 
     {{-- Modal Create/Edit --}}
     <x-nawasara-ui::modal wire:model="showModal" :title="$editingId ? 'Edit Aset' : 'Tambah Aset'">
-        <form wire:submit="saveAsset" class="space-y-4">
+        <form wire:submit="saveAsset" id="registry-asset-form" class="space-y-4">
             <div>
                 <x-nawasara-ui::form.label value="OPD" />
                 <x-nawasara-ui::form.select wire:model.live="assetOpdId" name="assetOpdId" placeholder="Pilih OPD">
@@ -133,13 +125,14 @@
             <x-nawasara-ui::form.textarea label="Catatan (opsional)" placeholder="Catatan tambahan..."
                 wire:model="assetNotes" />
 
-            <x-slot:footer>
-                <button type="button" wire:click="$set('showModal', false)"
-                    class="py-2.5 px-4 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 hover:bg-gray-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white">
-                    Batal
-                </button>
-                <x-nawasara-ui::button type="submit" color="primary">Simpan</x-nawasara-ui::button>
-            </x-slot:footer>
         </form>
+
+        <x-slot:footer>
+            <button type="button" wire:click="$set('showModal', false)"
+                class="py-2.5 px-4 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 hover:bg-gray-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white">
+                Batal
+            </button>
+            <x-nawasara-ui::button type="submit" form="registry-asset-form" color="primary">Simpan</x-nawasara-ui::button>
+        </x-slot:footer>
     </x-nawasara-ui::modal>
 </div>

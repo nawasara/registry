@@ -10,7 +10,7 @@
         <x-slot name="actions">
             <x-nawasara-ui::page.actions>
                 <a href="{{ route('nawasara-registry.opd.create') }}" wire:navigate>
-                    <x-nawasara-ui::button color="primary">
+                    <x-nawasara-ui::button color="success">
                         <x-slot:icon><x-lucide-plus class="size-4" /></x-slot:icon>
                         Tambah OPD
                     </x-nawasara-ui::button>
