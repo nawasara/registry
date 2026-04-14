@@ -2,6 +2,7 @@
 
 namespace Nawasara\Registry\Livewire\Asset\Section;
 
+use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Computed;
@@ -86,12 +87,16 @@ class Table extends Component
     #[On('openCreateAsset')]
     public function openCreate()
     {
+        Gate::authorize('registry.asset.manage');
+
         $this->resetModal();
         $this->showModal = true;
     }
 
     public function openEdit($id)
     {
+        Gate::authorize('registry.asset.manage');
+
         $asset = Asset::findOrFail($id);
         $this->editingId = $asset->id;
         $this->assetOpdId = $asset->opd_id;
@@ -106,6 +111,8 @@ class Table extends Component
 
     public function saveAsset()
     {
+        Gate::authorize('registry.asset.manage');
+
         $this->validate([
             'assetOpdId' => 'nullable|exists:nawasara_registry_opd,id',
             'assetPicId' => 'nullable',
@@ -138,6 +145,8 @@ class Table extends Component
 
     public function delete($id)
     {
+        Gate::authorize('registry.asset.manage');
+
         Asset::findOrFail($id)->delete();
         toaster_success('Aset berhasil dihapus');
     }

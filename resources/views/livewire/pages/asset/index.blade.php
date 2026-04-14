@@ -9,7 +9,8 @@
 
         <x-slot name="actions">
             <x-nawasara-ui::page.actions>
-                <x-nawasara-ui::button wire:click="$dispatch('openCreateAsset')" color="success">
+                <x-nawasara-ui::button wire:click="$dispatch('openCreateAsset')" color="success"
+                    permission="registry.asset.manage">
                     <x-slot:icon><x-lucide-plus class="size-4" /></x-slot:icon>
                     Tambah Aset
                 </x-nawasara-ui::button>

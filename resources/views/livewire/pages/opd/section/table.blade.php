@@ -32,8 +32,8 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                         <x-nawasara-ui::dropdown-menu-action :id="$item->id" :items="[
-                            ['type' => 'href-navigate', 'label' => 'Edit', 'url' => route('nawasara-registry.opd.edit', $item->id), 'icon' => 'lucide-pencil'],
-                            ['type' => 'delete', 'label' => 'Hapus', 'name' => $item->name],
+                            ['type' => 'href-navigate', 'label' => 'Edit', 'url' => route('nawasara-registry.opd.edit', $item->id), 'icon' => 'lucide-pencil', 'permission' => 'registry.opd.manage'],
+                            ['type' => 'delete', 'label' => 'Hapus', 'name' => $item->name, 'permission' => 'registry.opd.manage'],
                         ]" />
                     </td>
                 </tr>

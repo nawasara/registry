@@ -2,6 +2,7 @@
 
 namespace Nawasara\Registry\Livewire\Opd\Section;
 
+use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\On;
@@ -37,6 +38,8 @@ class Table extends Component
 
     public function delete($id)
     {
+        Gate::authorize('registry.opd.manage');
+
         Opd::findOrFail($id)->delete();
         toaster_success('OPD berhasil dihapus');
         $this->dispatch('opd-deleted');

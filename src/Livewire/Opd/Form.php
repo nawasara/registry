@@ -2,8 +2,9 @@
 
 namespace Nawasara\Registry\Livewire\Opd;
 
-use Livewire\Component;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Livewire\Component;
 use Nawasara\Registry\Models\Opd;
 use Nawasara\Registry\Models\Pic;
 
@@ -23,6 +24,8 @@ class Form extends Component
 
     public function mount($id = null)
     {
+        Gate::authorize('registry.opd.manage');
+
         if ($id) {
             $opd = Opd::with('pics')->findOrFail($id);
             $this->opdId = $opd->id;
@@ -93,6 +96,8 @@ class Form extends Component
 
     public function save()
     {
+        Gate::authorize('registry.opd.manage');
+
         $this->validate();
 
         $opd = Opd::updateOrCreate(

@@ -84,8 +84,8 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                         <x-nawasara-ui::dropdown-menu-action :id="$item->id" :items="[
-                            ['type' => 'click', 'label' => 'Edit', 'action' => 'openEdit', 'param' => $item->id, 'icon' => 'lucide-pencil'],
-                            ['type' => 'delete', 'label' => 'Hapus', 'name' => $item->identifier],
+                            ['type' => 'click', 'label' => 'Edit', 'action' => 'openEdit', 'param' => $item->id, 'icon' => 'lucide-pencil', 'permission' => 'registry.asset.manage'],
+                            ['type' => 'delete', 'label' => 'Hapus', 'name' => $item->identifier, 'permission' => 'registry.asset.manage'],
                         ]" />
                     </td>
                 </tr>
