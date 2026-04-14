@@ -5,6 +5,20 @@
         <x-nawasara-ui::filter-dropdown label="Status" model="statusFilter"
             :items="array_merge(['all' => 'Semua Status'], config('nawasara-registry.asset_statuses', []))" />
 
+        @if ($this->discoveredCount > 0)
+            <button wire:click="$toggle('onlyDiscovered')" type="button"
+                class="py-2 px-3 text-sm font-medium rounded-lg border inline-flex items-center gap-1.5 transition-colors
+                    {{ $onlyDiscovered
+                        ? 'border-orange-300 bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:border-orange-800 dark:text-orange-300'
+                        : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-700' }}">
+                <x-lucide-sparkles class="size-4" />
+                Perlu Review
+                <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 text-xs font-bold rounded-full bg-orange-500 text-white">
+                    {{ $this->discoveredCount }}
+                </span>
+            </button>
+        @endif
+
         <x-slot:chips>
             @if ($typeFilter)
                 <x-nawasara-ui::filter-chip label="Tipe: {{ config('nawasara-registry.asset_types.'.$typeFilter, $typeFilter) }}" model="typeFilter" />
@@ -24,7 +38,16 @@
                 <tr>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $item->id }}</td>
                     <td class="px-6 py-4 text-sm font-medium text-gray-800 dark:text-neutral-200">
-                        {{ $item->identifier }}
+                        <div class="flex items-center gap-2">
+                            <span>{{ $item->identifier }}</span>
+                            @if ($item->discovered_at && (! $item->opd_id || ! $item->pic_id))
+                                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                                    title="Auto-discovered {{ $item->discovered_at->diffForHumans() }} — perlu assign OPD/PIC">
+                                    <x-lucide-sparkles class="size-3" />
+                                    NEW
+                                </span>
+                            @endif
+                        </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">

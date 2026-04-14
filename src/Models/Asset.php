@@ -24,10 +24,12 @@ class Asset extends Model
         'notes',
         'ticket_ref',
         'registered_at',
+        'discovered_at',
     ];
 
     protected $casts = [
         'registered_at' => 'date',
+        'discovered_at' => 'datetime',
     ];
 
     public function getActivitylogOptions(): LogOptions

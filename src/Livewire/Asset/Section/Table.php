@@ -18,6 +18,7 @@ class Table extends Component
     public string $typeFilter = '';
     public string $statusFilter = '';
     public string $opdFilter = '';
+    public bool $onlyDiscovered = false;
 
     // Modal state
     public bool $showModal = false;
@@ -34,18 +35,36 @@ class Table extends Component
     public function updatedTypeFilter() { $this->resetPage(); }
     public function updatedStatusFilter() { $this->resetPage(); }
     public function updatedOpdFilter() { $this->resetPage(); }
+    public function updatedOnlyDiscovered() { $this->resetPage(); }
 
     #[Computed]
     public function items()
     {
-        return Asset::query()
+        $q = Asset::query()
             ->with(['opd', 'pic'])
             ->search($this->search)
             ->byType($this->typeFilter)
             ->byStatus($this->statusFilter)
-            ->byOpd($this->opdFilter)
-            ->latest()
-            ->paginate(15);
+            ->byOpd($this->opdFilter);
+
+        if ($this->onlyDiscovered) {
+            $q->whereNotNull('discovered_at')
+              ->where(function ($q) {
+                  $q->whereNull('opd_id')->orWhereNull('pic_id');
+              });
+        }
+
+        return $q->latest()->paginate(15);
+    }
+
+    #[Computed]
+    public function discoveredCount()
+    {
+        return Asset::whereNotNull('discovered_at')
+            ->where(function ($q) {
+                $q->whereNull('opd_id')->orWhereNull('pic_id');
+            })
+            ->count();
     }
 
     #[Computed]
