@@ -31,8 +31,14 @@
                             {{ $item->type_label }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-neutral-200">
-                        {{ $item->opd->name ?? '-' }}
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        @if ($item->opd)
+                            <span class="text-gray-800 dark:text-neutral-200">{{ $item->opd->name }}</span>
+                        @else
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                                Belum ditetapkan
+                            </span>
+                        @endif
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-neutral-400">
                         {{ $item->pic->name ?? '-' }}

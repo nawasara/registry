@@ -88,7 +88,7 @@ class Table extends Component
     public function saveAsset()
     {
         $this->validate([
-            'assetOpdId' => 'required|exists:nawasara_registry_opd,id',
+            'assetOpdId' => 'nullable|exists:nawasara_registry_opd,id',
             'assetPicId' => 'nullable',
             'assetType' => 'required',
             'assetIdentifier' => 'required|max:255',
@@ -98,7 +98,7 @@ class Table extends Component
         ]);
 
         $payload = [
-            'opd_id' => $this->assetOpdId,
+            'opd_id' => $this->assetOpdId ?: null,
             'pic_id' => $this->assetPicId ?: null,
             'type' => $this->assetType,
             'identifier' => $this->assetIdentifier,
