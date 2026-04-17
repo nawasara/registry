@@ -84,7 +84,7 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                         <x-nawasara-ui::dropdown-menu-action :id="$item->id" :items="[
-                            ['type' => 'click', 'label' => 'Edit', 'action' => 'openEdit', 'param' => $item->id, 'icon' => 'lucide-pencil', 'permission' => 'registry.asset.manage'],
+                            ['type' => 'click', 'label' => 'Edit', 'action' => 'openEdit', 'param' => $item->id, 'modal' => 'registry-asset-form', 'icon' => 'lucide-pencil', 'permission' => 'registry.asset.manage'],
                             ['type' => 'delete', 'label' => 'Hapus', 'name' => $item->identifier, 'permission' => 'registry.asset.manage'],
                         ]" />
                     </td>
@@ -104,7 +104,7 @@
     </x-nawasara-ui::table>
 
     {{-- Modal Create/Edit --}}
-    <x-nawasara-ui::modal wire:model="showModal" :title="$editingId ? 'Edit Aset' : 'Tambah Aset'">
+    <x-nawasara-ui::modal id="registry-asset-form" :title="$editingId ? 'Edit Aset' : 'Tambah Aset'">
         <form wire:submit="saveAsset" id="registry-asset-form" class="space-y-4">
             <div>
                 <x-nawasara-ui::form.label value="OPD" />
@@ -157,7 +157,7 @@
         </form>
 
         <x-slot:footer>
-            <button type="button" wire:click="$set('showModal', false)"
+            <button type="button" @click="$dispatch('close-modal', 'registry-asset-form')"
                 class="py-2.5 px-4 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 hover:bg-gray-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white">
                 Batal
             </button>

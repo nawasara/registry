@@ -22,7 +22,6 @@ class Table extends Component
     public bool $onlyDiscovered = false;
 
     // Modal state
-    public bool $showModal = false;
     public ?int $editingId = null;
     public $assetOpdId = '';
     public $assetPicId = '';
@@ -90,7 +89,7 @@ class Table extends Component
         Gate::authorize('registry.asset.manage');
 
         $this->resetModal();
-        $this->showModal = true;
+        $this->dispatch('modal-open:registry-asset-form');
     }
 
     public function openEdit($id)
@@ -106,7 +105,7 @@ class Table extends Component
         $this->assetStatus = $asset->status;
         $this->assetNotes = $asset->notes ?? '';
         $this->assetTicketRef = $asset->ticket_ref ?? '';
-        $this->showModal = true;
+        $this->dispatch('modal-open:registry-asset-form');
     }
 
     public function saveAsset()
@@ -153,7 +152,7 @@ class Table extends Component
 
     private function resetModal()
     {
-        $this->showModal = false;
+        $this->dispatch('modal-close:registry-asset-form');
         $this->editingId = null;
         $this->assetOpdId = '';
         $this->assetPicId = '';
