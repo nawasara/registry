@@ -4,7 +4,7 @@ $prefix = 'nawasara-registry';
 
 return [
     [
-        'label' => 'Registry',
+        'label' => 'Registry Aset',
         'icon' => 'lucide-building-2',
         'url' => '',
         'permission' => 'registry.opd.view',
