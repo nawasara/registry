@@ -8,9 +8,11 @@ use Livewire\WithPagination;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Computed;
 use Nawasara\Registry\Models\Opd;
+use Nawasara\Ui\Livewire\Concerns\HasBrowserToast;
 
 class Table extends Component
 {
+    use HasBrowserToast;
     use WithPagination;
 
     public string $search = '';
@@ -41,7 +43,7 @@ class Table extends Component
         Gate::authorize('registry.opd.manage');
 
         Opd::findOrFail($id)->delete();
-        toaster_success('OPD berhasil dihapus');
+        $this->toastSuccess('OPD berhasil dihapus');
         $this->dispatch('opd-deleted');
     }
 

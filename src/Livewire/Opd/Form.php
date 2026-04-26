@@ -7,9 +7,12 @@ use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Nawasara\Registry\Models\Opd;
 use Nawasara\Registry\Models\Pic;
+use Nawasara\Ui\Livewire\Concerns\HasBrowserToast;
 
 class Form extends Component
 {
+    use HasBrowserToast;
+
     public ?int $opdId = null;
 
     // OPD fields
@@ -134,7 +137,7 @@ class Form extends Component
             );
         }
 
-        toaster_success($this->opdId ? 'OPD berhasil diperbarui' : 'OPD berhasil ditambahkan');
+        $this->toastSuccess($this->opdId ? 'OPD berhasil diperbarui' : 'OPD berhasil ditambahkan');
 
         return redirect()->route('nawasara-registry.opd.index');
     }

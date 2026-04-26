@@ -10,9 +10,11 @@ use Livewire\Attributes\On;
 use Nawasara\Registry\Models\Asset;
 use Nawasara\Registry\Models\Opd;
 use Nawasara\Registry\Models\Pic;
+use Nawasara\Ui\Livewire\Concerns\HasBrowserToast;
 
 class Table extends Component
 {
+    use HasBrowserToast;
     use WithPagination;
 
     public string $search = '';
@@ -138,7 +140,7 @@ class Table extends Component
 
         Asset::updateOrCreate(['id' => $this->editingId], $payload);
 
-        toaster_success($this->editingId ? 'Aset berhasil diperbarui' : 'Aset berhasil ditambahkan');
+        $this->toastSuccess($this->editingId ? 'Aset berhasil diperbarui' : 'Aset berhasil ditambahkan');
         $this->resetModal();
     }
 
@@ -147,7 +149,7 @@ class Table extends Component
         Gate::authorize('registry.asset.manage');
 
         Asset::findOrFail($id)->delete();
-        toaster_success('Aset berhasil dihapus');
+        $this->toastSuccess('Aset berhasil dihapus');
     }
 
     private function resetModal()
