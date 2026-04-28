@@ -1,8 +1,28 @@
 {
     "name": "nawasara/registry",
-    "description": "Master data OPD, PIC, and asset ownership for Nawasara",
+    "description": "Master data for OPD (organizational units), PIC (person-in-charge), and asset ownership across Nawasara packages.",
     "type": "library",
     "license": "MIT",
+    "keywords": [
+        "nawasara",
+        "laravel",
+        "registry",
+        "asset",
+        "opd",
+        "pic",
+        "ownership"
+    ],
+    "authors": [
+        {
+            "name": "Pringgo J. Saputro",
+            "email": "odyinggo@gmail.com",
+            "role": "Lead Developer"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/nawasara/registry/issues",
+        "source": "https://github.com/nawasara/registry"
+    },
     "autoload": {
         "psr-4": {
             "Nawasara\\Registry\\": "src/"
@@ -22,5 +42,7 @@
                 "Nawasara\\Registry\\RegistryServiceProvider"
             ]
         }
-    }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }
