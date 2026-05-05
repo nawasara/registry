@@ -6,17 +6,19 @@
             :items="array_merge(['all' => 'Semua Status'], config('nawasara-registry.asset_statuses', []))" />
 
         @if ($this->discoveredCount > 0)
-            <button wire:click="$toggle('onlyDiscovered')" type="button"
-                class="py-2 px-3 text-sm font-medium rounded-lg border inline-flex items-center gap-1.5 transition-colors
-                    {{ $onlyDiscovered
-                        ? 'border-orange-300 bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:border-orange-800 dark:text-orange-300'
-                        : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-700' }}">
-                <x-lucide-sparkles class="size-4" />
+            <x-nawasara-ui::button
+                :color="$onlyDiscovered ? 'warning' : 'neutral'"
+                :variant="$onlyDiscovered ? 'flat' : 'outline'"
+                size="sm"
+                wire:click="$toggle('onlyDiscovered')">
+                <x-slot:icon><x-lucide-sparkles /></x-slot:icon>
                 Perlu Review
-                <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 text-xs font-bold rounded-full bg-orange-500 text-white">
-                    {{ $this->discoveredCount }}
-                </span>
-            </button>
+                <x-slot:trailing>
+                    <x-nawasara-ui::badge color="warning" variant="solid" size="sm">
+                        {{ $this->discoveredCount }}
+                    </x-nawasara-ui::badge>
+                </x-slot:trailing>
+            </x-nawasara-ui::button>
         @endif
 
         <x-slot:chips>
@@ -157,10 +159,10 @@
         </form>
 
         <x-slot:footer>
-            <button type="button" @click="$dispatch('close-modal', 'registry-asset-form')"
-                class="py-2.5 px-4 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 hover:bg-gray-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white">
+            <x-nawasara-ui::button color="neutral" variant="outline"
+                @click="$dispatch('close-modal', 'registry-asset-form')">
                 Batal
-            </button>
+            </x-nawasara-ui::button>
             <x-nawasara-ui::button type="submit" form="registry-asset-form" color="primary">Simpan</x-nawasara-ui::button>
         </x-slot:footer>
     </x-nawasara-ui::modal>

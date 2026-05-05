@@ -36,11 +36,10 @@
             <x-nawasara-ui::page.card>
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-base font-semibold text-gray-800 dark:text-neutral-200">Penanggung Jawab (PIC)</h3>
-                    <button type="button" wire:click="addPic"
-                        class="py-2 px-3 inline-flex items-center gap-x-1 text-xs font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white dark:hover:bg-neutral-700">
-                        <x-lucide-plus class="size-3" />
+                    <x-nawasara-ui::button color="neutral" variant="outline" size="sm" wire:click="addPic">
+                        <x-slot:icon><x-lucide-plus /></x-slot:icon>
                         Tambah PIC
-                    </button>
+                    </x-nawasara-ui::button>
                 </div>
 
                 @forelse ($pics as $index => $pic)
@@ -49,16 +48,18 @@
                         <div class="flex items-center justify-between mb-3">
                             <div class="flex items-center gap-2">
                                 @if ($pic['is_primary'])
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                        PIC Utama
-                                    </span>
+                                    <x-nawasara-ui::badge color="success">PIC Utama</x-nawasara-ui::badge>
                                 @else
-                                    <button type="button" wire:click="setPrimary({{ $index }})"
-                                        class="text-xs text-blue-600 hover:underline">Jadikan PIC Utama</button>
+                                    <x-nawasara-ui::button variant="link" color="primary" size="sm"
+                                        wire:click="setPrimary({{ $index }})" class="text-xs">
+                                        Jadikan PIC Utama
+                                    </x-nawasara-ui::button>
                                 @endif
                             </div>
-                            <button type="button" wire:click="removePic({{ $index }})"
-                                class="text-red-500 hover:text-red-700 text-xs">Hapus</button>
+                            <x-nawasara-ui::button variant="link" color="danger" size="sm"
+                                wire:click="removePic({{ $index }})" class="text-xs">
+                                Hapus
+                            </x-nawasara-ui::button>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
