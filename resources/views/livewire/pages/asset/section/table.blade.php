@@ -93,12 +93,12 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7" class="px-6 py-12 text-center">
-                        <div class="inline-flex items-center justify-center size-12 rounded-2xl bg-gray-100 dark:bg-neutral-800 mb-3">
-                            <x-lucide-package class="size-6 text-gray-400 dark:text-neutral-500" />
-                        </div>
-                        <p class="text-sm font-semibold text-gray-700 dark:text-neutral-300">Belum ada data aset</p>
-                        <p class="mt-1 text-xs text-gray-500 dark:text-neutral-400">Aset (DNS records, mailbox, VM) akan auto-populate dari sync service masing-masing.</p>
+                    <td colspan="7">
+                        <x-nawasara-ui::empty-state
+                            icon="lucide-package"
+                            title="Belum ada data aset"
+                            description="Aset (DNS records, mailbox, VM) akan auto-populate dari sync service masing-masing."
+                            inline />
                     </td>
                 </tr>
             @endforelse
