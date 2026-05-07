@@ -1,43 +1,93 @@
 <div>
-    <x-nawasara-ui::filter-bar searchPlaceholder="Cari identifier, OPD..." searchModel="search">
-        <x-nawasara-ui::filter-dropdown label="Tipe" model="typeFilter"
-            :items="array_merge(['all' => 'Semua Tipe'], config('nawasara-registry.asset_types', []))" />
-        <x-nawasara-ui::filter-dropdown label="Status" model="statusFilter"
-            :items="array_merge(['all' => 'Semua Status'], config('nawasara-registry.asset_statuses', []))" />
+    @php
+        $typeOptions = config('nawasara-registry.asset_types', []);
+        $statusOptions = config('nawasara-registry.asset_statuses', []);
+        // OPD options keyed by id => name for the filter-panel option list.
+        $opdOptions = $this->opdList->mapWithKeys(fn ($o) => [(string) $o->id => $o->code.' - '.$o->name])->all();
+    @endphp
 
-        @if ($this->discoveredCount > 0)
-            <x-nawasara-ui::button
-                :color="$onlyDiscovered ? 'warning' : 'neutral'"
-                :variant="$onlyDiscovered ? 'flat' : 'outline'"
-                size="sm"
-                wire:click="$toggle('onlyDiscovered')">
-                <x-slot:icon><x-lucide-sparkles /></x-slot:icon>
-                Perlu Review
-                <x-slot:trailing>
-                    <x-nawasara-ui::badge color="warning" variant="solid" size="sm">
-                        {{ $this->discoveredCount }}
-                    </x-nawasara-ui::badge>
-                </x-slot:trailing>
+    {{-- Page header — title left, primary "Tambah Aset" right.
+         No time-window: assets are stable resources (not events), so a
+         default 7-day filter would hide most rows on load. --}}
+    <x-nawasara-ui::page-header
+        title="Aset Digital"
+        description="Master daftar aset (DNS, mailbox, VM) yang Nawasara kelola, mapped ke OPD/PIC."
+        :count="$this->items->total().' aset'">
+        @can('registry.asset.manage')
+            <x-nawasara-ui::button wire:click="$dispatch('openCreateAsset')" color="success"
+                @click="$dispatch('open-modal', 'registry-asset-form')">
+                <x-slot:icon><x-lucide-plus class="size-4" /></x-slot:icon>
+                Tambah Aset
             </x-nawasara-ui::button>
-        @endif
+        @endcan
+    </x-nawasara-ui::page-header>
 
-        <x-slot:chips>
-            @if ($typeFilter)
-                <x-nawasara-ui::filter-chip label="Tipe: {{ config('nawasara-registry.asset_types.'.$typeFilter, $typeFilter) }}" model="typeFilter" />
-            @endif
-            @if ($statusFilter)
-                <x-nawasara-ui::filter-chip label="Status: {{ config('nawasara-registry.asset_statuses.'.$statusFilter, $statusFilter) }}" model="statusFilter" />
-            @endif
-            @if ($search)
+    {{-- Toolbar — Tipe + Status + OPD multi-select filters, search, the
+         "Perlu Review" highlight button, and export. --}}
+    <div class="space-y-2 mb-4">
+        <div class="flex flex-col md:flex-row md:flex-nowrap md:items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
+                <x-nawasara-ui::filter-panel
+                    label="Filter"
+                    :state="['typeFilter' => $typeFilter, 'statusFilter' => $statusFilter, 'opdFilter' => $opdFilter]"
+                    :multiple="['typeFilter', 'statusFilter', 'opdFilter']"
+                    :labels="['typeFilter' => $typeOptions, 'statusFilter' => $statusOptions, 'opdFilter' => $opdOptions]"
+                    :dimensions="['typeFilter' => 'Tipe', 'statusFilter' => 'Status', 'opdFilter' => 'OPD']">
+                    <x-nawasara-ui::filter-group label="Tipe" model="typeFilter" :items="$typeOptions" icon="lucide-package" />
+                    <x-nawasara-ui::filter-group label="Status" model="statusFilter" :items="$statusOptions" icon="lucide-circle-check" />
+                    <x-nawasara-ui::filter-group label="OPD" model="opdFilter" :items="$opdOptions" icon="lucide-building-2" />
+                </x-nawasara-ui::filter-panel>
+
+                {{-- "Perlu Review" toggle — special CTA for discovered
+                     but unassigned assets. Stays inline next to the filter
+                     panel as a one-click highlight, not a generic dim. --}}
+                @if ($this->discoveredCount > 0)
+                    <button type="button" wire:click="$toggle('onlyDiscovered')"
+                        class="inline-flex items-center gap-2 h-10 px-3 rounded-lg border text-sm font-medium transition-colors shadow-sm
+                            {{ $onlyDiscovered
+                                ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-300'
+                                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-700' }}">
+                        <x-lucide-sparkles class="size-4" />
+                        Perlu Review
+                        <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full text-[11px] font-semibold bg-amber-600 text-white">
+                            {{ $this->discoveredCount }}
+                        </span>
+                    </button>
+                @endif
+            </div>
+
+            <div class="relative w-full md:flex-1 md:min-w-0">
+                <div class="absolute inset-y-0 start-0 flex items-center pointer-events-none ps-3.5">
+                    <x-lucide-search class="shrink-0 size-4 text-gray-400 dark:text-neutral-500" />
+                </div>
+                <input type="text" wire:model.live.debounce.300ms="search"
+                    placeholder="Cari identifier atau OPD..."
+                    class="h-10 ps-10 pe-4 block w-full border border-gray-200 rounded-lg text-sm focus:border-emerald-600 focus:ring-emerald-600 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-200 dark:placeholder-neutral-500 dark:focus:ring-neutral-600" />
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+                <x-nawasara-ui::export-button
+                    action="export"
+                    tooltip="Ekspor registry aset"
+                    permission="registry.asset.manage" />
+            </div>
+        </div>
+
+        <div wire:ignore data-filter-chips></div>
+
+        @if ($search)
+            <div class="flex flex-wrap items-center gap-2">
                 <x-nawasara-ui::filter-chip label="Cari: {{ $search }}" model="search" />
-            @endif
-        </x-slot:chips>
-    </x-nawasara-ui::filter-bar>
+            </div>
+        @endif
+    </div>
 
-    <x-nawasara-ui::table :headers="['#', 'Identifier', 'Tipe', 'OPD', 'PIC', 'Status', 'Dibuat', '']" title="Daftar Aset Digital">
+    <x-nawasara-ui::table
+        stickyLast
+        :headers="['#', 'Identifier', 'Tipe', 'OPD', 'PIC', 'Status', 'Dibuat', '']">
         <x-slot:table>
             @forelse ($this->items as $item)
-                <tr>
+                <tr wire:key="asset-{{ $item->id }}">
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $item->id }}</td>
                     <td class="px-6 py-4 text-sm font-medium text-gray-800 dark:text-neutral-200">
                         <div class="flex items-center gap-2">
@@ -93,12 +143,21 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7">
-                        <x-nawasara-ui::empty-state
-                            icon="lucide-package"
-                            title="Belum ada data aset"
-                            description="Aset (DNS records, mailbox, VM) akan auto-populate dari sync service masing-masing."
-                            inline />
+                    <td colspan="8">
+                        @if ($search || ! empty($typeFilter) || ! empty($statusFilter) || ! empty($opdFilter) || $onlyDiscovered)
+                            <x-nawasara-ui::empty-state
+                                icon="lucide-search-x"
+                                title="Tidak ada aset yang cocok"
+                                description="Coba ubah filter atau hapus search keyword."
+                                variant="filter"
+                                inline />
+                        @else
+                            <x-nawasara-ui::empty-state
+                                icon="lucide-package"
+                                title="Belum ada data aset"
+                                description="Aset (DNS records, mailbox, VM) akan auto-populate dari sync service masing-masing."
+                                inline />
+                        @endif
                     </td>
                 </tr>
             @endforelse

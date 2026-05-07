@@ -11,16 +11,36 @@ use Nawasara\Registry\Models\Asset;
 use Nawasara\Registry\Models\Opd;
 use Nawasara\Registry\Models\Pic;
 use Nawasara\Ui\Livewire\Concerns\HasBrowserToast;
+use Nawasara\Ui\Livewire\Concerns\HasExport;
 
 class Table extends Component
 {
     use HasBrowserToast;
+    use HasExport;
     use WithPagination;
 
     public string $search = '';
-    public string $typeFilter = '';
-    public string $statusFilter = '';
-    public string $opdFilter = '';
+
+    /**
+     * Multi-select filters using filter-panel array semantics.
+     * Empty array == no filter. The Asset scopes (byType/byStatus/byOpd)
+     * are polymorphic and accept either string or array.
+     *
+     * @var array<int, string>
+     */
+    public array $typeFilter = [];
+
+    /** @var array<int, string> */
+    public array $statusFilter = [];
+
+    /** @var array<int, int|string> */
+    public array $opdFilter = [];
+
+    /**
+     * Toggle button that narrows to assets discovered automatically (e.g.
+     * from DNS sync) but not yet assigned to OPD/PIC. Stays scalar bool
+     * because it's a single binary state, not a multi-value dimension.
+     */
     public bool $onlyDiscovered = false;
 
     // Modal state
@@ -163,6 +183,42 @@ class Table extends Component
         $this->assetStatus = 'active';
         $this->assetNotes = '';
         $this->assetTicketRef = '';
+    }
+
+    /**
+     * Export filename base — timestamp + extension appended by HasExport.
+     */
+    protected function exportFilename(): string
+    {
+        return 'registry-assets';
+    }
+
+    /**
+     * Export FULL asset registry (no filter) per spec. Includes OPD/PIC
+     * names so the spreadsheet doesn't need a join with the OPD master.
+     */
+    protected function exportData(): iterable
+    {
+        return Asset::query()
+            ->with(['opd', 'pic'])
+            ->orderBy('id')
+            ->get()
+            ->map(fn (Asset $a) => [
+                'ID' => $a->id,
+                'Tipe' => $a->type,
+                'Identifier' => $a->identifier,
+                'Status' => $a->status,
+                'OPD Code' => $a->opd?->code,
+                'OPD Name' => $a->opd?->name,
+                'PIC Name' => $a->pic?->name,
+                'PIC Position' => $a->pic?->position,
+                'Notes' => $a->notes,
+                'Ticket Ref' => $a->ticket_ref,
+                'Discovered At' => optional($a->discovered_at)->format('Y-m-d H:i'),
+                'Registered At' => optional($a->registered_at)->format('Y-m-d H:i'),
+                'Created' => optional($a->created_at)->format('Y-m-d H:i'),
+                'Updated' => optional($a->updated_at)->format('Y-m-d H:i'),
+            ]);
     }
 
     public function render()

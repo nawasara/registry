@@ -63,19 +63,52 @@ class Asset extends Model
         });
     }
 
-    public function scopeByType($query, ?string $type)
+    /**
+     * Polymorphic asset-type filter. Accepts string for single match or
+     * array<string> for multi-select (filter-panel uses arrays). Empty
+     * value (null, '', []) is a no-op so callers can pass user input
+     * straight through.
+     *
+     * @param  string|array<int,string>|null  $type
+     */
+    public function scopeByType($query, string|array|null $type)
     {
-        return $type ? $query->where('type', $type) : $query;
+        if (empty($type)) {
+            return $query;
+        }
+        return is_array($type)
+            ? $query->whereIn('type', $type)
+            : $query->where('type', $type);
     }
 
-    public function scopeByStatus($query, ?string $status)
+    /**
+     * Polymorphic asset-status filter. Same shape as scopeByType.
+     *
+     * @param  string|array<int,string>|null  $status
+     */
+    public function scopeByStatus($query, string|array|null $status)
     {
-        return $status ? $query->where('status', $status) : $query;
+        if (empty($status)) {
+            return $query;
+        }
+        return is_array($status)
+            ? $query->whereIn('status', $status)
+            : $query->where('status', $status);
     }
 
-    public function scopeByOpd($query, $opdId)
+    /**
+     * Polymorphic OPD filter. Accepts int/string id, array of ids, or null.
+     *
+     * @param  int|string|array<int, int|string>|null  $opdId
+     */
+    public function scopeByOpd($query, int|string|array|null $opdId)
     {
-        return $opdId ? $query->where('opd_id', $opdId) : $query;
+        if (empty($opdId)) {
+            return $query;
+        }
+        return is_array($opdId)
+            ? $query->whereIn('opd_id', $opdId)
+            : $query->where('opd_id', $opdId);
     }
 
     public function getTypeLabelAttribute(): string
