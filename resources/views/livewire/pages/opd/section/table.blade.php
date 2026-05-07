@@ -54,14 +54,10 @@
                         {{ $item->name }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-neutral-200">
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                            {{ $item->pics_count }}
-                        </span>
+                        <x-nawasara-ui::badge color="blue">{{ $item->pics_count }}</x-nawasara-ui::badge>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-neutral-200">
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-                            {{ $item->assets_count }}
-                        </span>
+                        <x-nawasara-ui::badge color="purple">{{ $item->assets_count }}</x-nawasara-ui::badge>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-neutral-400">
                         {{ $item->email ?? '-' }}

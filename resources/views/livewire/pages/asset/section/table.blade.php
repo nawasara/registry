@@ -102,17 +102,13 @@
                         </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-                            {{ $item->type_label }}
-                        </span>
+                        <x-nawasara-ui::badge color="purple">{{ $item->type_label }}</x-nawasara-ui::badge>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                         @if ($item->opd)
                             <span class="text-gray-800 dark:text-neutral-200">{{ $item->opd->name }}</span>
                         @else
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
-                                Belum ditetapkan
-                            </span>
+                            <x-nawasara-ui::badge color="warning">Belum ditetapkan</x-nawasara-ui::badge>
                         @endif
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-neutral-400">
@@ -120,16 +116,15 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                         @php
-                            $statusClass = match($item->status) {
-                                'active' => 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-                                'inactive' => 'bg-gray-100 text-gray-600 dark:bg-neutral-700 dark:text-neutral-400',
-                                'pending' => 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-                                default => 'bg-gray-100 text-gray-800',
+                            $assetStatusColor = match($item->status) {
+                                'active' => 'success',
+                                'pending' => 'warning',
+                                default => 'neutral',
                             };
                         @endphp
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $statusClass }}">
+                        <x-nawasara-ui::badge :color="$assetStatusColor">
                             {{ $item->status_label }}
-                        </span>
+                        </x-nawasara-ui::badge>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-neutral-400">
                         {{ $item->created_at->format('d M Y') }}
