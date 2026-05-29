@@ -39,6 +39,11 @@ class Opd extends Model
         return $this->hasMany(Asset::class, 'opd_id');
     }
 
+    public function memberships(): HasMany
+    {
+        return $this->hasMany(Membership::class, 'opd_id');
+    }
+
     public function primaryPic()
     {
         return $this->pics()->where('is_primary', true)->first();

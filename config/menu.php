@@ -23,6 +23,13 @@ return [
                 'permission' => 'registry.asset.view',
                 'navigate' => true,
             ],
+            [
+                'label' => 'Keanggotaan OPD',
+                'icon' => 'lucide-users',
+                'url' => url($prefix.'/membership'),
+                'permission' => 'registry.membership.manage',
+                'navigate' => true,
+            ],
         ],
     ],
 ];

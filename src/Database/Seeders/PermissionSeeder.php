@@ -18,6 +18,7 @@ class PermissionSeeder extends Seeder
             'registry.asset.view',
             'registry.asset.manage',
             'registry.export.use',
+            'registry.membership.manage', // link users to their OPD (cross-package)
         ];
 
         foreach ($permissions as $permission) {
