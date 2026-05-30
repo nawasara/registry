@@ -60,25 +60,19 @@
         <x-nawasara-ui::modal id="registry-membership-assign" title="Tambah Keanggotaan" maxWidth="md">
             <form wire:submit="assign" class="space-y-4">
                 <div>
-                    <label class="block text-sm text-neutral-600 dark:text-neutral-300 mb-1">User</label>
-                    <select wire:model="userId"
-                        class="w-full rounded-lg border-gray-300 dark:border-neutral-600 dark:bg-neutral-800 text-sm">
-                        <option value="">— pilih user —</option>
-                        @foreach ($this->userOptions as $id => $label)
-                            <option value="{{ $id }}">{{ $label }}</option>
-                        @endforeach
-                    </select>
+                    <x-nawasara-ui::form.select
+                        label="User"
+                        wire:model="userId"
+                        placeholder="— pilih user —"
+                        :options="$this->userOptions" />
                     @error('userId') <span class="text-xs text-rose-500">{{ $message }}</span> @enderror
                 </div>
                 <div>
-                    <label class="block text-sm text-neutral-600 dark:text-neutral-300 mb-1">OPD</label>
-                    <select wire:model="opdId"
-                        class="w-full rounded-lg border-gray-300 dark:border-neutral-600 dark:bg-neutral-800 text-sm">
-                        <option value="">— pilih OPD —</option>
-                        @foreach ($this->opdOptions as $id => $name)
-                            <option value="{{ $id }}">{{ $name }}</option>
-                        @endforeach
-                    </select>
+                    <x-nawasara-ui::form.select
+                        label="OPD"
+                        wire:model="opdId"
+                        placeholder="— pilih OPD —"
+                        :options="$this->opdOptions" />
                     @error('opdId') <span class="text-xs text-rose-500">{{ $message }}</span> @enderror
                 </div>
             </form>

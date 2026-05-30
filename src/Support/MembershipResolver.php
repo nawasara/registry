@@ -37,6 +37,17 @@ class MembershipResolver
             return ['state' => 'privileged', 'opdId' => null];
         }
 
+        // Privileged roles win over membership. An admin who also happens
+        // to be linked to an OPD (e.g. PIC for their own dinas) still needs
+        // cross-OPD visibility to do their admin work. Without this check
+        // first, the member branch would scope them to a single OPD even
+        // though their role grants global access.
+        //
+        // hasAnyRole() comes from Spatie's HasRoles trait on the User model.
+        if (! empty($privilegedRoles) && method_exists($user, 'hasAnyRole') && $user->hasAnyRole($privilegedRoles)) {
+            return ['state' => 'privileged', 'opdId' => null];
+        }
+
         $opdId = Membership::query()
             ->where('user_id', $user->getAuthIdentifier())
             ->where('aktif', true)
@@ -44,11 +55,6 @@ class MembershipResolver
 
         if ($opdId !== null) {
             return ['state' => 'member', 'opdId' => (int) $opdId];
-        }
-
-        // hasAnyRole comes from Spatie's HasRoles trait on the User model.
-        if (! empty($privilegedRoles) && method_exists($user, 'hasAnyRole') && $user->hasAnyRole($privilegedRoles)) {
-            return ['state' => 'privileged', 'opdId' => null];
         }
 
         return ['state' => 'restricted', 'opdId' => null];
