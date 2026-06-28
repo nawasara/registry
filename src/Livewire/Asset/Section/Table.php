@@ -7,6 +7,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 use Nawasara\Registry\Models\Asset;
 use Nawasara\Registry\Models\Opd;
 use Nawasara\Registry\Models\Pic;
@@ -19,6 +20,8 @@ class Table extends Component
     use HasExport;
     use WithPagination;
 
+    // #[Url] so the command palette can deep-link ?search=<term> and prefill.
+    #[Url(except: '')]
     public string $search = '';
 
     /**

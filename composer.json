@@ -34,6 +34,7 @@
         "spatie/laravel-permission": "^6.0",
         "spatie/laravel-activitylog": "^4.9",
         "nawasara/ui": "*",
+        "nawasara/search": "*",
         "livewire/livewire": "^3.0"
     },
     "extra": {
