@@ -6,6 +6,7 @@ return [
     [
         'label' => 'Registry Aset',
         'icon' => 'lucide-building-2',
+        'group' => 'Aset & Registry',
         'url' => '',
         'permission' => 'registry.opd.view',
         'submenu' => [
