@@ -8,9 +8,10 @@ use Livewire\WithPagination;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
+use Nawasara\Keycloak\Support\KeycloakProfile;
 use Nawasara\Registry\Models\Asset;
+use Nawasara\Registry\Models\Membership;
 use Nawasara\Registry\Models\Opd;
-use Nawasara\Registry\Models\Pic;
 use Nawasara\Ui\Livewire\Concerns\HasBrowserToast;
 use Nawasara\Ui\Livewire\Concerns\HasExport;
 
@@ -49,7 +50,7 @@ class Table extends Component
     // Modal state
     public ?int $editingId = null;
     public $assetOpdId = '';
-    public $assetPicId = '';
+    public $assetPjUserId = '';
     public string $assetType = '';
     public string $assetIdentifier = '';
     public string $assetStatus = 'active';
@@ -66,7 +67,7 @@ class Table extends Component
     public function items()
     {
         $q = Asset::query()
-            ->with(['opd', 'pic'])
+            ->with(['opd', 'penanggungJawab'])
             ->search($this->search)
             ->byType($this->typeFilter)
             ->byStatus($this->statusFilter)
@@ -75,7 +76,7 @@ class Table extends Component
         if ($this->onlyDiscovered) {
             $q->whereNotNull('discovered_at')
               ->where(function ($q) {
-                  $q->whereNull('opd_id')->orWhereNull('pic_id');
+                  $q->whereNull('opd_id')->orWhereNull('pj_user_id');
               });
         }
 
@@ -87,7 +88,7 @@ class Table extends Component
     {
         return Asset::whereNotNull('discovered_at')
             ->where(function ($q) {
-                $q->whereNull('opd_id')->orWhereNull('pic_id');
+                $q->whereNull('opd_id')->orWhereNull('pj_user_id');
             })
             ->count();
     }
@@ -98,14 +99,34 @@ class Table extends Component
         return Opd::orderBy('name')->get(['id', 'name', 'code']);
     }
 
+    /**
+     * Penanggung-jawab candidates for the selected OPD: active members of that
+     * OPD, keyed [user_id => nama]. Name comes from the Keycloak snapshot via
+     * KeycloakProfile so the dropdown matches the contact data shown elsewhere.
+     *
+     * @return array<int, string>
+     */
     #[Computed]
-    public function picList()
+    public function pjCandidates(): array
     {
         if (! $this->assetOpdId) {
-            return collect();
+            return [];
         }
 
-        return Pic::where('opd_id', $this->assetOpdId)->orderBy('name')->get(['id', 'name', 'position']);
+        $members = Membership::where('opd_id', $this->assetOpdId)
+            ->where('aktif', true)
+            ->with('user')
+            ->get()
+            ->filter(fn (Membership $m) => $m->user !== null);
+
+        $candidates = [];
+        foreach ($members as $member) {
+            $candidates[$member->user->id] = KeycloakProfile::for($member->user)->name;
+        }
+
+        asort($candidates);
+
+        return $candidates;
     }
 
     #[On('openCreateAsset')]
@@ -124,7 +145,7 @@ class Table extends Component
         $asset = Asset::findOrFail($id);
         $this->editingId = $asset->id;
         $this->assetOpdId = $asset->opd_id;
-        $this->assetPicId = $asset->pic_id ?? '';
+        $this->assetPjUserId = $asset->pj_user_id ?? '';
         $this->assetType = $asset->type;
         $this->assetIdentifier = $asset->identifier;
         $this->assetStatus = $asset->status;
@@ -139,7 +160,7 @@ class Table extends Component
 
         $this->validate([
             'assetOpdId' => 'nullable|exists:nawasara_registry_opd,id',
-            'assetPicId' => 'nullable',
+            'assetPjUserId' => 'nullable',
             'assetType' => 'required',
             'assetIdentifier' => 'required|max:255',
             'assetStatus' => 'required|in:active,inactive,pending',
@@ -149,7 +170,7 @@ class Table extends Component
 
         $payload = [
             'opd_id' => $this->assetOpdId ?: null,
-            'pic_id' => $this->assetPicId ?: null,
+            'pj_user_id' => $this->assetPjUserId ?: null,
             'type' => $this->assetType,
             'identifier' => $this->assetIdentifier,
             'status' => $this->assetStatus,
@@ -180,7 +201,7 @@ class Table extends Component
         $this->dispatch('modal-close:registry-asset-form');
         $this->editingId = null;
         $this->assetOpdId = '';
-        $this->assetPicId = '';
+        $this->assetPjUserId = '';
         $this->assetType = '';
         $this->assetIdentifier = '';
         $this->assetStatus = 'active';
@@ -197,31 +218,37 @@ class Table extends Component
     }
 
     /**
-     * Export FULL asset registry (no filter) per spec. Includes OPD/PIC
-     * names so the spreadsheet doesn't need a join with the OPD master.
+     * Export FULL asset registry (no filter) per spec. Includes OPD name and
+     * the penanggung-jawab contact (name/NIP/WhatsApp resolved from Keycloak)
+     * so the spreadsheet doesn't need a join with the OPD master.
      */
     protected function exportData(): iterable
     {
         return Asset::query()
-            ->with(['opd', 'pic'])
+            ->with(['opd', 'penanggungJawab'])
             ->orderBy('id')
             ->get()
-            ->map(fn (Asset $a) => [
-                'ID' => $a->id,
-                'Tipe' => $a->type,
-                'Identifier' => $a->identifier,
-                'Status' => $a->status,
-                'OPD Code' => $a->opd?->code,
-                'OPD Name' => $a->opd?->name,
-                'PIC Name' => $a->pic?->name,
-                'PIC Position' => $a->pic?->position,
-                'Notes' => $a->notes,
-                'Ticket Ref' => $a->ticket_ref,
-                'Discovered At' => optional($a->discovered_at)->format('Y-m-d H:i'),
-                'Registered At' => optional($a->registered_at)->format('Y-m-d H:i'),
-                'Created' => optional($a->created_at)->format('Y-m-d H:i'),
-                'Updated' => optional($a->updated_at)->format('Y-m-d H:i'),
-            ]);
+            ->map(function (Asset $a) {
+                $pj = $a->pjProfile();
+
+                return [
+                    'ID' => $a->id,
+                    'Tipe' => $a->type,
+                    'Identifier' => $a->identifier,
+                    'Status' => $a->status,
+                    'OPD Code' => $a->opd?->code,
+                    'OPD Name' => $a->opd?->name,
+                    'Penanggung Jawab' => $a->pj_user_id ? $pj->name : null,
+                    'NIP' => $a->pj_user_id ? $pj->nip : null,
+                    'WhatsApp' => $a->pj_user_id ? $pj->whatsapp : null,
+                    'Notes' => $a->notes,
+                    'Ticket Ref' => $a->ticket_ref,
+                    'Discovered At' => optional($a->discovered_at)->format('Y-m-d H:i'),
+                    'Registered At' => optional($a->registered_at)->format('Y-m-d H:i'),
+                    'Created' => optional($a->created_at)->format('Y-m-d H:i'),
+                    'Updated' => optional($a->updated_at)->format('Y-m-d H:i'),
+                ];
+            });
     }
 
     public function render()

@@ -32,7 +32,7 @@
 
     <x-nawasara-ui::table
         stickyLast
-        :headers="['#', 'Kode', 'Nama OPD', 'PIC', 'Aset', 'Kontak', 'Dibuat', '']"
+        :headers="['#', 'Kode', 'Nama OPD', 'Anggota', 'Aset', 'Kontak', 'Dibuat', '']"
         :title="'Data OPD ('.$this->items->total().' OPD)'">
         <x-slot:table>
             @forelse ($this->items as $item)
@@ -47,7 +47,7 @@
                         {{ $item->name }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-neutral-200">
-                        <x-nawasara-ui::badge color="blue">{{ $item->pics_count }}</x-nawasara-ui::badge>
+                        <x-nawasara-ui::badge color="blue">{{ $item->members_count }}</x-nawasara-ui::badge>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-neutral-200">
                         <x-nawasara-ui::badge color="purple">{{ $item->assets_count }}</x-nawasara-ui::badge>

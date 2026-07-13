@@ -29,11 +29,6 @@ class Opd extends Model
             ->setDescriptionForEvent(fn (string $eventName) => "OPD {$eventName}");
     }
 
-    public function pics(): HasMany
-    {
-        return $this->hasMany(Pic::class, 'opd_id');
-    }
-
     public function assets(): HasMany
     {
         return $this->hasMany(Asset::class, 'opd_id');
@@ -44,9 +39,10 @@ class Opd extends Model
         return $this->hasMany(Membership::class, 'opd_id');
     }
 
-    public function primaryPic()
+    /** Users belonging to this OPD (via membership) — candidates for asset PJ. */
+    public function members(): HasMany
     {
-        return $this->pics()->where('is_primary', true)->first();
+        return $this->hasMany(Membership::class, 'opd_id')->where('aktif', true);
     }
 
     public function scopeSearch($query, ?string $term)

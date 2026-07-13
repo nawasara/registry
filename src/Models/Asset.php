@@ -4,6 +4,7 @@ namespace Nawasara\Registry\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Nawasara\Keycloak\Support\KeycloakProfile;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 
@@ -15,7 +16,7 @@ class Asset extends Model
 
     protected $fillable = [
         'opd_id',
-        'pic_id',
+        'pj_user_id',
         'type',
         'identifier',
         'package_ref',
@@ -35,7 +36,7 @@ class Asset extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['type', 'identifier', 'status', 'opd_id', 'pic_id'])
+            ->logOnly(['type', 'identifier', 'status', 'opd_id', 'pj_user_id'])
             ->logOnlyDirty()
             ->setDescriptionForEvent(fn (string $eventName) => "Asset {$eventName}");
     }
@@ -45,9 +46,16 @@ class Asset extends Model
         return $this->belongsTo(Opd::class, 'opd_id');
     }
 
-    public function pic(): BelongsTo
+    /** The person responsible for this asset — a Laravel user. */
+    public function penanggungJawab(): BelongsTo
     {
-        return $this->belongsTo(Pic::class, 'pic_id');
+        return $this->belongsTo(config('auth.providers.users.model'), 'pj_user_id');
+    }
+
+    /** Contact profile (name/NIP/WhatsApp/email) sourced from Keycloak. */
+    public function pjProfile(): KeycloakProfile
+    {
+        return KeycloakProfile::for($this->penanggungJawab);
     }
 
     public function scopeSearch($query, ?string $term)

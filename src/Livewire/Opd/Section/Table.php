@@ -31,7 +31,7 @@ class Table extends Component
     public function items()
     {
         return Opd::query()
-            ->withCount(['pics', 'assets'])
+            ->withCount(['members', 'assets'])
             ->search($this->search)
             ->orderBy('name')
             ->paginate(15);
@@ -68,7 +68,7 @@ class Table extends Component
     protected function exportData(): iterable
     {
         return Opd::query()
-            ->withCount(['pics', 'assets'])
+            ->withCount(['members', 'assets'])
             ->orderBy('name')
             ->get()
             ->map(fn (Opd $opd) => [
@@ -77,7 +77,7 @@ class Table extends Component
                 'Email' => $opd->email,
                 'Telepon' => $opd->phone,
                 'Alamat' => $opd->address,
-                'Jumlah PIC' => $opd->pics_count,
+                'Jumlah Anggota' => $opd->members_count,
                 'Jumlah Aset' => $opd->assets_count,
                 'Dibuat' => optional($opd->created_at)->format('Y-m-d H:i'),
                 'Diubah' => optional($opd->updated_at)->format('Y-m-d H:i'),

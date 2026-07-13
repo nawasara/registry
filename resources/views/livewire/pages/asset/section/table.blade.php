@@ -11,7 +11,7 @@
          default 7-day filter would hide most rows on load. --}}
     <x-nawasara-ui::page-header
         title="Aset Digital"
-        description="Master daftar aset (DNS, mailbox, VM) yang Nawasara kelola, mapped ke OPD/PIC."
+        description="Master daftar aset (DNS, mailbox, VM) yang Nawasara kelola, mapped ke OPD/penanggung jawab."
         :count="$this->items->total().' aset'">
         @can('registry.asset.manage')
             <x-nawasara-ui::button wire:click="$dispatch('openCreateAsset')" color="success"
@@ -77,7 +77,7 @@
 
     <x-nawasara-ui::table
         stickyLast
-        :headers="['#', 'Identifier', 'Tipe', 'OPD', 'PIC', 'Status', 'Dibuat', '']">
+        :headers="['#', 'Identifier', 'Tipe', 'OPD', 'Penanggung Jawab', 'Status', 'Dibuat', '']">
         <x-slot:table>
             @forelse ($this->items as $item)
                 <tr wire:key="asset-{{ $item->id }}">
@@ -85,9 +85,9 @@
                     <td class="px-6 py-4 text-sm font-medium text-gray-800 dark:text-neutral-200">
                         <div class="flex items-center gap-2">
                             <span>{{ $item->identifier }}</span>
-                            @if ($item->discovered_at && (! $item->opd_id || ! $item->pic_id))
+                            @if ($item->discovered_at && (! $item->opd_id || ! $item->pj_user_id))
                                 <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-                                    title="Auto-discovered {{ $item->discovered_at->diffForHumans() }} — perlu assign OPD/PIC">
+                                    title="Auto-discovered {{ $item->discovered_at->diffForHumans() }} — perlu assign OPD/penanggung jawab">
                                     <x-lucide-sparkles class="size-3" />
                                     NEW
                                 </span>
@@ -104,8 +104,19 @@
                             <x-nawasara-ui::badge color="warning">Belum ditetapkan</x-nawasara-ui::badge>
                         @endif
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-neutral-400">
-                        {{ $item->pic->name ?? '-' }}
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        @if ($item->pj_user_id)
+                            @php $pj = $item->pjProfile(); @endphp
+                            <div class="text-gray-800 dark:text-neutral-200">{{ $pj->name }}</div>
+                            @if ($pj->nip)
+                                <div class="text-xs text-gray-500 dark:text-neutral-400">NIP {{ $pj->nip }}</div>
+                            @endif
+                            @if ($pj->whatsapp)
+                                <div class="text-xs text-gray-500 dark:text-neutral-400">{{ $pj->whatsapp }}</div>
+                            @endif
+                        @else
+                            <span class="text-gray-500 dark:text-neutral-400">-</span>
+                        @endif
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                         @php
@@ -170,12 +181,17 @@
 
             @if ($assetOpdId)
                 <div>
-                    <x-nawasara-ui::form.label value="PIC (opsional)" />
-                    <x-nawasara-ui::form.select wire:model="assetPicId" placeholder="Pilih PIC">
-                        @foreach ($this->picList as $pic)
-                            <option value="{{ $pic->id }}">{{ $pic->name }} {{ $pic->position ? "({$pic->position})" : '' }}</option>
-                        @endforeach
-                    </x-nawasara-ui::form.select>
+                    <x-nawasara-ui::form.label value="Penanggung Jawab (opsional)" />
+                    @if (count($this->pjCandidates) > 0)
+                        <x-nawasara-ui::form.select
+                            wire:model="assetPjUserId"
+                            :options="$this->pjCandidates"
+                            placeholder="Pilih penanggung jawab" />
+                    @else
+                        <p class="text-sm text-gray-500 dark:text-neutral-400">
+                            Belum ada anggota aktif di OPD ini. Tambahkan anggota (membership) terlebih dahulu.
+                        </p>
+                    @endif
                 </div>
             @endif
 

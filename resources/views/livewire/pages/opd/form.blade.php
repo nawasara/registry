@@ -32,52 +32,19 @@
                 </div>
             </x-nawasara-ui::page.card>
 
-            {{-- PIC List --}}
+            {{-- Penanggung jawab / anggota OPD dikelola lewat halaman Keanggotaan
+                 (user ↔ OPD via membership), data kontaknya bersumber dari
+                 Keycloak — tidak lagi diketik manual di sini. --}}
             <x-nawasara-ui::page.card>
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-base font-semibold text-gray-800 dark:text-neutral-200">Penanggung Jawab (PIC)</h3>
-                    <x-nawasara-ui::button color="neutral" variant="outline" size="sm" wire:click="addPic">
-                        <x-slot:icon><x-lucide-plus /></x-slot:icon>
-                        Tambah PIC
-                    </x-nawasara-ui::button>
+                <div class="flex items-start gap-3">
+                    <x-lucide-info class="size-5 shrink-0 text-sky-500 mt-0.5" />
+                    <p class="text-sm text-gray-600 dark:text-neutral-400">
+                        Penanggung jawab &amp; anggota OPD dikelola di halaman
+                        <a href="{{ route('nawasara-registry.membership.index') }}" wire:navigate
+                           class="text-emerald-600 dark:text-emerald-400 hover:underline">Keanggotaan</a>.
+                        Data kontak (nama, NIP, WhatsApp, email) otomatis bersumber dari Keycloak.
+                    </p>
                 </div>
-
-                @forelse ($pics as $index => $pic)
-                    <div class="relative border border-gray-200 dark:border-neutral-700 rounded-lg p-4 mb-3 {{ $pic['is_primary'] ? 'bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-800/50' : '' }}">
-                        {{-- Primary badge & actions --}}
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="flex items-center gap-2">
-                                @if ($pic['is_primary'])
-                                    <x-nawasara-ui::badge color="success">PIC Utama</x-nawasara-ui::badge>
-                                @else
-                                    <x-nawasara-ui::button variant="link" color="primary" size="sm"
-                                        wire:click="setPrimary({{ $index }})" class="text-xs">
-                                        Jadikan PIC Utama
-                                    </x-nawasara-ui::button>
-                                @endif
-                            </div>
-                            <x-nawasara-ui::button variant="link" color="danger" size="sm"
-                                wire:click="removePic({{ $index }})" class="text-xs">
-                                Hapus
-                            </x-nawasara-ui::button>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <x-nawasara-ui::form.input label="Nama" placeholder="Nama PIC"
-                                wire:model="pics.{{ $index }}.name" useError errorVariable="pics.{{ $index }}.name" />
-                            <x-nawasara-ui::form.input label="Jabatan" placeholder="Kabid Infrastruktur"
-                                wire:model="pics.{{ $index }}.position" />
-                            <x-nawasara-ui::form.input label="Telepon" placeholder="08xx"
-                                wire:model="pics.{{ $index }}.phone" />
-                            <x-nawasara-ui::form.input label="Email" type="email" placeholder="pic@kab.go.id"
-                                wire:model="pics.{{ $index }}.email" />
-                        </div>
-                    </div>
-                @empty
-                    <div class="text-center py-6 text-sm text-gray-400 dark:text-neutral-500">
-                        Belum ada PIC. Klik "Tambah PIC" untuk menambahkan.
-                    </div>
-                @endforelse
             </x-nawasara-ui::page.card>
 
             {{-- Actions --}}
