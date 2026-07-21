@@ -73,7 +73,7 @@ class Index extends Component
         ]);
 
         $this->reset(['userId', 'opdId']);
-        $this->dispatch('close-modal', 'registry-membership-assign');
+        $this->dispatch('modal-close:registry-membership-assign');
         $this->dispatch('toast', ['type' => 'success', 'message' => 'Keanggotaan ditambahkan.']);
     }
 
