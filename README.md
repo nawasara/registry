@@ -58,6 +58,46 @@ $assetMap = Asset::where('package_ref', 'whm')
 | `/admin/registry/pic` | `registry.pic.view` |
 | `/admin/registry/asset` | `registry.asset.view` |
 
+## API
+
+Butuh [`nawasara/api`](../nawasara-api). Kalau paket itu tidak terpasang, route tidak di-mount.
+
+Registry adalah data master organisasi, jadi ini endpoint yang paling berguna untuk berbagi data antar aplikasi: dua sistem bisa memakai daftar OPD yang sama alih-alih masing-masing menyimpan salinan yang lambat laun berbeda.
+
+### Scope
+
+| Scope | Akses |
+|---|---|
+| `registry.opd.read` | Daftar OPD: kode, nama, alamat, kontak dinas |
+| `registry.asset.read` | Domain, subdomain, akun layanan + penanggung jawab |
+| `registry.membership.read` | Pegawai mana bertugas di dinas mana |
+
+Keanggotaan dipisah karena ia memetakan **orang** ke organisasi, sedangkan dua yang lain adalah data organisasi.
+
+### Endpoint
+
+| Method | Path | Query |
+|---|---|---|
+| GET | `/api/v1/registry/opd` | `q`, `per_page` (maks 200) |
+| GET | `/api/v1/registry/opd/{code}` | dicari lewat kode, bukan id |
+| GET | `/api/v1/registry/assets` | `q`, `type`, `status`, `opd` (kode), `per_page` |
+| GET | `/api/v1/registry/assets/{id}` | |
+| GET | `/api/v1/registry/memberships` | `opd` (kode), `aktif` (`1` default \| `0` \| `all`), `per_page` |
+
+Parameter multi-nilai menerima koma: `?type=domain,subdomain`.
+
+Pakai `code` OPD dan `keycloak_id` orang untuk menautkan data lintas sistem — keduanya bertahan meski nama atau username berubah. `id` baris hanya bermakna di dalam Nawasara.
+
+### Yang tidak dikembalikan
+
+- **`notes`** aset — catatan operator, bebas isi. Karena tidak ada aturan apa yang boleh ditulis di sana, tidak ada jaminan isinya aman keluar.
+- **`ticket_ref`, `external_id`** — rujukan internal dan id di sistem pihak ketiga; hanya berguna bagi yang punya akses ke sistem itu.
+- **`user_id` lokal** pada keanggotaan; `keycloak_id` yang dipakai sebagai gantinya.
+
+### Catatan bila `ScopedToOpd` dipasang ke Asset
+
+Saat ini `Asset` **tidak** memakai trait itu. Kalau suatu saat dipasang, endpoint aset harus ditinjau ulang: `MembershipResolver` memperlakukan permintaan tanpa user login sebagai `privileged`, dan token API tidak punya user — jadi penyaringan per-OPD akan terlewat begitu saja tanpa error.
+
 ## Author
 
 **Pringgo J. Saputro** &lt;odyinggo@gmail.com&gt;

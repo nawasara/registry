@@ -17,6 +17,62 @@ class RegistryServiceProvider extends ServiceProvider
 
         $this->registerLivewire();
         $this->offerPublishing();
+
+        // Scope didaftarkan sebelum routes: UI token memfilter scope yang
+        // tidak ter-register, jadi lupa mendaftarkan berarti scope-nya tidak
+        // bisa diberikan ke token mana pun — diam-diam.
+        $this->registerApiScopes();
+        $this->registerApiRoutes();
+    }
+
+    /**
+     * Daftarkan scope API ke registry terpusat `nawasara/api`.
+     *
+     * Guard class_exists, bukan dependency composer — package ini tetap jalan
+     * penuh tanpa nawasara/api terpasang; API-nya saja yang absen.
+     */
+    public function registerApiScopes(): void
+    {
+        if (! class_exists(\Nawasara\Api\Support\ScopeRegistry::class)) {
+            return;
+        }
+
+        $registry = $this->app->make(\Nawasara\Api\Support\ScopeRegistry::class);
+
+        $registry->register(
+            'registry.opd.read',
+            'Data master OPD: kode, nama, alamat, dan kontak dinas. Dipakai aplikasi lain '
+            .'supaya memakai daftar organisasi yang sama, bukan salinan masing-masing. Read-only.',
+        );
+
+        $registry->register(
+            'registry.asset.read',
+            'Aset milik OPD: domain, subdomain, dan akun layanan beserta penanggung jawabnya. '
+            .'Catatan operator dan rujukan tiket internal tidak termasuk. Read-only.',
+        );
+
+        $registry->register(
+            'registry.membership.read',
+            'Keanggotaan OPD: pegawai mana bertugas di dinas mana (nama, NIP). '
+            .'Dipisah dari scope OPD karena ini memetakan orang, bukan organisasi. Read-only.',
+        );
+    }
+
+    /**
+     * Mount routes/api.php di prefix /api/v1/registry.
+     */
+    public function registerApiRoutes(): void
+    {
+        if (! class_exists(\Nawasara\Api\ApiServiceProvider::class)) {
+            return;
+        }
+
+        $prefix = (string) config('nawasara-api.route.prefix', 'api/v1').'/registry';
+
+        \Illuminate\Support\Facades\Route::prefix($prefix)
+            ->middleware(['api', 'api.auth', 'api.log'])
+            ->name('nawasara-api.registry.')
+            ->group(__DIR__.'/../routes/api.php');
     }
 
     public function register(): void
