@@ -32,7 +32,12 @@ class OpdSeeder extends Seeder
         ['code' => 'SATPOLPP', 'name' => 'Satuan Polisi Pamong Praja'],
         ['code' => 'DISNAKER', 'name' => 'Dinas Tenaga Kerja'],
         ['code' => 'INSPEKTORAT', 'name' => 'Inspektorat Kabupaten Ponorogo'],
-        ['code' => 'BAPPEDA', 'name' => 'Badan Perencanaan Pembangunan Daerah'],
+
+        // BAPPEDA sengaja TIDAK ada di sini. Badan yang sama sudah terdaftar
+        // sebagai BAPPERIDA di produksi — nomenklaturnya berganti menjadi
+        // "Badan Perencanaan Pembangunan, Riset dan Inovasi Daerah". Menyeed
+        // BAPPEDA akan membuat OPD KEDUA untuk badan yang sama, dan laporan
+        // warga akan terbelah ke dua tujuan yang berbeda.
     ];
 
     public function run(): void
