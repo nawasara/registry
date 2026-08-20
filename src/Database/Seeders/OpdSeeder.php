@@ -33,6 +33,14 @@ class OpdSeeder extends Seeder
         ['code' => 'DISNAKER', 'name' => 'Dinas Tenaga Kerja'],
         ['code' => 'INSPEKTORAT', 'name' => 'Inspektorat Kabupaten Ponorogo'],
 
+        // Ditambahkan 20 Agustus 2026: kategori Bencana di Lapor Bunda
+        // menunjuk ke sini, dan tanpa BPBD terdaftar ia lahir tanpa OPD —
+        // laporan bencana berhenti di antrean Admin Kabupaten alih-alih
+        // terdisposisi otomatis. Itu kategori dengan SLA paling ketat di
+        // seluruh daftar (3 jam), jadi justru yang paling tidak boleh
+        // menunggu penerusan manual.
+        ['code' => 'BPBD', 'name' => 'Badan Penanggulangan Bencana Daerah'],
+
         // BAPPEDA sengaja TIDAK ada di sini. Badan yang sama sudah terdaftar
         // sebagai BAPPERIDA di produksi — nomenklaturnya berganti menjadi
         // "Badan Perencanaan Pembangunan, Riset dan Inovasi Daerah". Menyeed
