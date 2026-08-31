@@ -44,7 +44,7 @@ class MembershipResolver
         // though their role grants global access.
         //
         // hasAnyRole() comes from Spatie's HasRoles trait on the User model.
-        if (! empty($privilegedRoles) && method_exists($user, 'hasAnyRole') && $user->hasAnyRole($privilegedRoles)) {
+        if (! empty($privilegedRoles) && $this->actsAsPrivileged($user, $privilegedRoles)) {
             return ['state' => 'privileged', 'opdId' => null];
         }
 
@@ -58,6 +58,40 @@ class MembershipResolver
         }
 
         return ['state' => 'restricted', 'opdId' => null];
+    }
+
+    /**
+     * Is the user acting as a privileged role RIGHT NOW?
+     *
+     * ⚠️ Not simply hasAnyRole(). When a user switches role (SwitchRole
+     * stores `active_role` in the session), permission checks narrow to that
+     * one role — but data scope did not, because this used hasAnyRole()
+     * which reads every role the account holds.
+     *
+     * The result was a developer who also holds hibah-operator switching to
+     * operator, seeing operator-level menus, and still seeing every OPD's
+     * data. The narrowing looked like it worked, which is worse than it
+     * plainly not working: it invites testing tenant isolation from an
+     * account that can never demonstrate it.
+     *
+     * With an active role set, ONLY that role counts. Without one, every
+     * role counts, as before.
+     */
+    protected function actsAsPrivileged(Authenticatable $user, array $privilegedRoles): bool
+    {
+        if (! method_exists($user, 'hasAnyRole')) {
+            return false;
+        }
+
+        $activeRole = session('active_role');
+
+        if ($activeRole && method_exists($user, 'hasRole') && $user->hasRole($activeRole)) {
+            // Stale active_role (role revoked since switching) falls through
+            // to the full check below rather than locking the user out.
+            return in_array($activeRole, $privilegedRoles, true);
+        }
+
+        return $user->hasAnyRole($privilegedRoles);
     }
 
     /** Convenience: the OPD id for a member, else null. */
