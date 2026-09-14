@@ -4,11 +4,11 @@ Master data for the Nawasara superapp framework: organizational units (OPD), per
 
 ## Features
 
-- **OPD** — code, name, address, phone, email, and a list of related PIC contacts
-- **PIC (Person-in-Charge)** — name, position, contact details, scoped to one OPD
-- **Asset** — generic ownership record keyed by `(package_ref, external_id)`. Other packages (Cloudflare DNS, WHM Account, Email account) write here with their canonical IDs so the dashboard can render an "OPD / PIC" column on every resource list and a single OPD detail page can show every asset they own
-- **Activity log** — every write is captured via `spatie/laravel-activitylog`
-- **Admin pages** — Livewire CRUD for OPD, PIC, and Asset with search, filter, and detail modals
+- **OPD**: code, name, address, phone, email, and a list of related PIC contacts
+- **PIC (Person-in-Charge)**: name, position, contact details, scoped to one OPD
+- **Asset**: a generic ownership record keyed by `(package_ref, external_id)`. Other packages (Cloudflare DNS, WHM Account, Email account) write here with their canonical IDs so the dashboard can render an "OPD / PIC" column on every resource list and a single OPD detail page can show every asset they own
+- **Activity log**: every write is captured via `spatie/laravel-activitylog`
+- **Admin pages**: Livewire CRUD for OPD, PIC, and Asset with search, filter, and detail modals
 
 ## Installation
 
@@ -60,43 +60,43 @@ $assetMap = Asset::where('package_ref', 'whm')
 
 ## API
 
-Butuh [`nawasara/api`](../nawasara-api). Kalau paket itu tidak terpasang, route tidak di-mount.
+Requires [`nawasara/api`](../nawasara-api). If that package is not installed, the routes are not mounted.
 
-Registry adalah data master organisasi, jadi ini endpoint yang paling berguna untuk berbagi data antar aplikasi: dua sistem bisa memakai daftar OPD yang sama alih-alih masing-masing menyimpan salinan yang lambat laun berbeda.
+Registry is the organization's master data, so these are the most useful endpoints for sharing data between applications: two systems can use the same OPD list instead of each keeping a copy that slowly drifts apart.
 
 ### Scope
 
-| Scope | Akses |
+| Scope | Access |
 |---|---|
-| `registry.opd.read` | Daftar OPD: kode, nama, alamat, kontak dinas |
-| `registry.asset.read` | Domain, subdomain, akun layanan + penanggung jawab |
-| `registry.membership.read` | Pegawai mana bertugas di dinas mana |
+| `registry.opd.read` | OPD list: code, name, address, agency contacts |
+| `registry.asset.read` | Domains, subdomains, service accounts and their responsible party |
+| `registry.membership.read` | Which employee works at which agency |
 
-Keanggotaan dipisah karena ia memetakan **orang** ke organisasi, sedangkan dua yang lain adalah data organisasi.
+Membership is separate because it maps **people** to organizations, while the other two are organization data.
 
-### Endpoint
+### Endpoints
 
 | Method | Path | Query |
 |---|---|---|
-| GET | `/api/v1/registry/opd` | `q`, `per_page` (maks 200) |
-| GET | `/api/v1/registry/opd/{code}` | dicari lewat kode, bukan id |
-| GET | `/api/v1/registry/assets` | `q`, `type`, `status`, `opd` (kode), `per_page` |
+| GET | `/api/v1/registry/opd` | `q`, `per_page` (max 200) |
+| GET | `/api/v1/registry/opd/{code}` | looked up by code, not id |
+| GET | `/api/v1/registry/assets` | `q`, `type`, `status`, `opd` (code), `per_page` |
 | GET | `/api/v1/registry/assets/{id}` | |
-| GET | `/api/v1/registry/memberships` | `opd` (kode), `aktif` (`1` default \| `0` \| `all`), `per_page` |
+| GET | `/api/v1/registry/memberships` | `opd` (code), `aktif` (`1` default, `0`, or `all`), `per_page` |
 
-Parameter multi-nilai menerima koma: `?type=domain,subdomain`.
+Multi-value parameters accept commas: `?type=domain,subdomain`.
 
-Pakai `code` OPD dan `keycloak_id` orang untuk menautkan data lintas sistem — keduanya bertahan meski nama atau username berubah. `id` baris hanya bermakna di dalam Nawasara.
+Use an OPD's `code` and a person's `keycloak_id` to link data across systems; both survive a change of name or username. A row's `id` only means something inside Nawasara.
 
-### Yang tidak dikembalikan
+### What is not returned
 
-- **`notes`** aset — catatan operator, bebas isi. Karena tidak ada aturan apa yang boleh ditulis di sana, tidak ada jaminan isinya aman keluar.
-- **`ticket_ref`, `external_id`** — rujukan internal dan id di sistem pihak ketiga; hanya berguna bagi yang punya akses ke sistem itu.
-- **`user_id` lokal** pada keanggotaan; `keycloak_id` yang dipakai sebagai gantinya.
+- **Asset `notes`**: free-form operator notes. Since there is no rule about what may be written there, there is no guarantee the content is safe to expose.
+- **`ticket_ref`, `external_id`**: internal references and ids in third-party systems; only useful to someone with access to those systems.
+- **The local `user_id`** on memberships; `keycloak_id` is returned instead.
 
-### Catatan bila `ScopedToOpd` dipasang ke Asset
+### Note if `ScopedToOpd` is applied to Asset
 
-Saat ini `Asset` **tidak** memakai trait itu. Kalau suatu saat dipasang, endpoint aset harus ditinjau ulang: `MembershipResolver` memperlakukan permintaan tanpa user login sebagai `privileged`, dan token API tidak punya user — jadi penyaringan per-OPD akan terlewat begitu saja tanpa error.
+Right now `Asset` does not use that trait. If it is ever applied, the asset endpoints must be reviewed: `MembershipResolver` treats a request with no logged-in user as `privileged`, and an API token has no user, so per-OPD filtering would be skipped silently with no error.
 
 ## Author
 
