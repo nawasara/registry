@@ -170,28 +170,53 @@
     {{-- Modal Create/Edit --}}
     <x-nawasara-ui::modal id="registry-asset-form" :title="$editingId ? 'Edit Aset' : 'Tambah Aset'">
         <form wire:submit="saveAsset" id="registry-asset-form" class="space-y-4">
-            <div>
-                <x-nawasara-ui::form.label value="OPD" />
-                <x-nawasara-ui::form.select wire:model.live="assetOpdId" name="assetOpdId" placeholder="Pilih OPD">
-                    @foreach ($this->opdList as $opd)
-                        <option value="{{ $opd->id }}">{{ $opd->code }} - {{ $opd->name }}</option>
-                    @endforeach
-                </x-nawasara-ui::form.select>
-            </div>
+            {{-- OPD + Penanggung Jawab + pencarian NIP, satu komponen bersama.
+                 Sebelumnya, OPD tanpa anggota membuat admin buntu di sini. --}}
+            <livewire:nawasara-registry.pic-picker
+                :opd-id="$assetOpdId ?: null"
+                :pj-user-id="$assetPjUserId ?: null"
+                :key="'pic-picker-'.($editingId ?? 'baru')" />
 
-            @if ($assetOpdId)
-                <div>
-                    <x-nawasara-ui::form.label value="Penanggung Jawab (opsional)" />
-                    @if (count($this->pjCandidates) > 0)
-                        <x-nawasara-ui::form.select
-                            wire:model="assetPjUserId"
-                            :options="$this->pjCandidates"
-                            placeholder="Pilih penanggung jawab" />
-                    @else
-                        <p class="text-sm text-gray-500 dark:text-neutral-400">
-                            Belum ada anggota aktif di OPD ini. Tambahkan anggota (membership) terlebih dahulu.
-                        </p>
-                    @endif
+            @if ($picMismatch)
+                {{-- Ditahan, bukan diperbaiki sendiri: yang dipertaruhkan
+                     adalah siapa boleh melihat data OPD mana. --}}
+                <div class="rounded-lg border border-amber-300 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/30 p-3 space-y-2">
+                    <p class="text-sm font-medium text-amber-800 dark:text-amber-200">
+                        OPD orang ini berbeda menurut SIMAS Hebat
+                    </p>
+
+                    <dl class="text-xs space-y-1">
+                        <div class="flex gap-2">
+                            <dt class="text-neutral-600 dark:text-neutral-400 w-36 shrink-0">Tercatat di Nawasara</dt>
+                            <dd class="text-neutral-800 dark:text-neutral-100">{{ $picMismatch['tercatat'] }}</dd>
+                        </div>
+                        <div class="flex gap-2">
+                            <dt class="text-neutral-600 dark:text-neutral-400 w-36 shrink-0">Menurut SIMAS Hebat</dt>
+                            <dd class="text-neutral-800 dark:text-neutral-100">{{ $picMismatch['simas'] }}</dd>
+                        </div>
+                    </dl>
+
+                    <p class="text-xs text-neutral-600 dark:text-neutral-400">
+                        Kalau orang ini memang sudah pindah, lanjutkan untuk memindahkan
+                        keanggotaannya. Perpindahan dicatat di log audit.
+                    </p>
+
+                    <x-nawasara-ui::button color="warning" wire:click="saveAssetConfirmed">
+                        Pindahkan dan simpan
+                    </x-nawasara-ui::button>
+                </div>
+            @endif
+
+            @if ($picSimasError)
+                <div class="rounded-lg border border-gray-300 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-800 p-3 space-y-2">
+                    <p class="text-sm text-neutral-800 dark:text-neutral-100">{{ $picSimasError }}</p>
+                    <p class="text-xs text-neutral-600 dark:text-neutral-400">
+                        Penetapan tetap dapat dilanjutkan, tetapi data kepegawaiannya
+                        tidak diperbarui dan penetapan ini ditandai belum terverifikasi.
+                    </p>
+                    <x-nawasara-ui::button color="neutral" wire:click="saveAssetConfirmed">
+                        Lanjutkan tanpa verifikasi
+                    </x-nawasara-ui::button>
                 </div>
             @endif
 

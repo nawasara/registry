@@ -8,10 +8,11 @@ use Livewire\WithPagination;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
-use Nawasara\Keycloak\Support\KeycloakProfile;
+use Nawasara\Registry\Exceptions\PicMismatchException;
+use Nawasara\Registry\Exceptions\SimasHebatException;
 use Nawasara\Registry\Models\Asset;
-use Nawasara\Registry\Models\Membership;
 use Nawasara\Registry\Models\Opd;
+use Nawasara\Registry\Services\PicAssignmentService;
 use Nawasara\Ui\Livewire\Concerns\HasBrowserToast;
 use Nawasara\Ui\Livewire\Concerns\HasExport;
 
@@ -57,6 +58,18 @@ class Table extends Component
     public string $assetNotes = '';
     public string $assetTicketRef = '';
 
+    /**
+     * A held-back assignment: SIMAS Hebat places this person in a different OPD
+     * than the one on file. Kept as state rather than resolved on the spot, so
+     * the admin sees both and decides. See PicMismatchException.
+     *
+     * @var array{tercatat: string, simas: string, unit_kerja: string}|null
+     */
+    public ?array $picMismatch = null;
+
+    /** SIMAS was unreachable; assignment may proceed unverified once confirmed. */
+    public ?string $picSimasError = null;
+
     public function updatedSearch() { $this->resetPage(); }
     public function updatedTypeFilter() { $this->resetPage(); }
     public function updatedStatusFilter() { $this->resetPage(); }
@@ -99,35 +112,12 @@ class Table extends Component
         return Opd::orderBy('name')->get(['id', 'name', 'code']);
     }
 
-    /**
-     * Penanggung-jawab candidates for the selected OPD: active members of that
-     * OPD, keyed [user_id => nama]. Name comes from the Keycloak snapshot via
-     * KeycloakProfile so the dropdown matches the contact data shown elsewhere.
-     *
-     * @return array<int, string>
+    /*
+     * pjCandidates() used to live here, and in three other packages besides,
+     * identical apart from whitespace. It now sits in the shared pic-picker
+     * component together with the NIP lookup, so the rule about who may be
+     * appointed has one home rather than four.
      */
-    #[Computed]
-    public function pjCandidates(): array
-    {
-        if (! $this->assetOpdId) {
-            return [];
-        }
-
-        $members = Membership::where('opd_id', $this->assetOpdId)
-            ->where('aktif', true)
-            ->with('user')
-            ->get()
-            ->filter(fn (Membership $m) => $m->user !== null);
-
-        $candidates = [];
-        foreach ($members as $member) {
-            $candidates[$member->user->id] = KeycloakProfile::for($member->user)->name;
-        }
-
-        asort($candidates);
-
-        return $candidates;
-    }
 
     #[On('openCreateAsset')]
     public function openCreate()
@@ -154,7 +144,40 @@ class Table extends Component
         $this->dispatch('modal-open:registry-asset-form');
     }
 
+    /**
+     * Picked in the shared pic-picker. It reports rather than writes, so the
+     * two values land here and the assignment still goes through the service
+     * below when the form is saved.
+     */
+    #[On('pic-selected')]
+    public function onPicSelected(array $payload): void
+    {
+        $this->assetOpdId = $payload['opd_id'] ?? '';
+        $this->assetPjUserId = $payload['pj_user_id'] ?? '';
+
+        // A fresh choice invalidates a held-back one.
+        $this->picMismatch = null;
+        $this->picSimasError = null;
+    }
+
     public function saveAsset()
+    {
+        $this->saveAssetInternal();
+    }
+
+    /**
+     * Save after the admin has seen a mismatch and chosen to move the person,
+     * or seen that SIMAS is down and chosen to proceed unverified.
+     */
+    public function saveAssetConfirmed()
+    {
+        $this->saveAssetInternal(
+            acceptMismatch: $this->picMismatch !== null,
+            allowWithoutSimas: $this->picSimasError !== null,
+        );
+    }
+
+    protected function saveAssetInternal(bool $acceptMismatch = false, bool $allowWithoutSimas = false)
     {
         Gate::authorize('registry.asset.manage');
 
@@ -170,7 +193,6 @@ class Table extends Component
 
         $payload = [
             'opd_id' => $this->assetOpdId ?: null,
-            'pj_user_id' => $this->assetPjUserId ?: null,
             'type' => $this->assetType,
             'identifier' => $this->assetIdentifier,
             'status' => $this->assetStatus,
@@ -182,7 +204,49 @@ class Table extends Component
             $payload['registered_at'] = now();
         }
 
-        Asset::updateOrCreate(['id' => $this->editingId], $payload);
+        // Written WITHOUT pj_user_id: appointing someone is not a field write.
+        // It re-checks their posting at SIMAS Hebat, refreshes their employment
+        // record and may create an OPD, so it runs through the service below.
+        $asset = Asset::updateOrCreate(['id' => $this->editingId], $payload);
+
+        if ($this->assetPjUserId) {
+            $userModel = config('auth.providers.users.model');
+            $user = $userModel::find($this->assetPjUserId);
+
+            if (! $user) {
+                $this->toastError('Pengguna yang dipilih tidak ditemukan.');
+
+                return;
+            }
+
+            try {
+                app(PicAssignmentService::class)->assign(
+                    asset: $asset,
+                    user: $user,
+                    opdId: $this->assetOpdId ?: null,
+                    acceptMismatch: $acceptMismatch,
+                    allowWithoutSimas: $allowWithoutSimas,
+                );
+            } catch (PicMismatchException $e) {
+                // Held, not resolved. Overwriting opd_id would revoke someone's
+                // access with nobody told, and if the matcher is what slipped,
+                // the access revoked is the correct one.
+                $this->picMismatch = [
+                    'tercatat' => $e->recorded->name,
+                    'simas' => $e->fromSimas?->name ?? $e->simasUnitKerja,
+                    'unit_kerja' => $e->simasUnitKerja,
+                ];
+
+                return;
+            } catch (SimasHebatException $e) {
+                $this->picSimasError = $e->getMessage();
+
+                return;
+            }
+        } elseif ($this->editingId) {
+            // PIC cleared on an existing asset.
+            $asset->forceFill(['pj_user_id' => null])->save();
+        }
 
         $this->toastSuccess($this->editingId ? 'Aset berhasil diperbarui' : 'Aset berhasil ditambahkan');
         $this->resetModal();
@@ -207,6 +271,11 @@ class Table extends Component
         $this->assetStatus = 'active';
         $this->assetNotes = '';
         $this->assetTicketRef = '';
+        $this->picMismatch = null;
+        $this->picSimasError = null;
+
+        // The picker holds its own copy of the two values and the lookup box.
+        $this->dispatch('pic-picker-reset');
     }
 
     /**
