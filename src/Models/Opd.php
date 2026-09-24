@@ -3,6 +3,7 @@
 namespace Nawasara\Registry\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
@@ -16,6 +17,8 @@ class Opd extends Model
     protected $fillable = [
         'code',
         'name',
+        'simas_name',
+        'parent_id',
         'address',
         'phone',
         'email',
@@ -24,7 +27,7 @@ class Opd extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['code', 'name', 'address', 'phone', 'email'])
+            ->logOnly(['code', 'name', 'simas_name', 'parent_id', 'address', 'phone', 'email'])
             ->logOnlyDirty()
             ->setDescriptionForEvent(fn (string $eventName) => "OPD {$eventName}");
     }
@@ -43,6 +46,29 @@ class Opd extends Model
     public function members(): HasMany
     {
         return $this->hasMany(Membership::class, 'opd_id')->where('aktif', true);
+    }
+
+    /** Divisions inside this OPD ("BIDANG ...", "SEKRETARIAT"). */
+    public function units(): HasMany
+    {
+        return $this->hasMany(Unit::class, 'opd_id');
+    }
+
+    /**
+     * The OPD this one sits under, if any. Schools and puskesmas are OPD rows
+     * with a parent; a dinas has none.
+     *
+     * Note this does NOT widen visibility: ScopedToOpd still matches one
+     * opd_id exactly, so a parent does not see its children's data.
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id');
     }
 
     public function scopeSearch($query, ?string $term)

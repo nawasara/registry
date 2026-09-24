@@ -17,4 +17,23 @@ return [
         'inactive' => 'Tidak Aktif',
         'pending' => 'Pending',
     ],
+
+    /*
+    |---------------------------------------------------------------------------
+    | SIMAS Hebat
+    |---------------------------------------------------------------------------
+    | Employment lookup by NIP, called when a PIC is assigned. Credentials live
+    | in Vault, never here: the Keycloak authenticator hardcodes them because it
+    | cannot read Vault, and that is not a pattern to copy into a package.
+    */
+    'simas' => [
+        'vault_group' => 'simas-hebat',
+        'timeout' => 15,
+
+        // NIP used by the Vault "Test" button. Any real one will do.
+        'test_nip' => env('SIMAS_TEST_NIP', ''),
+
+        // How long employment data may sit before the UI calls it stale.
+        'stale_after_days' => 180,
+    ],
 ];

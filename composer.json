@@ -36,6 +36,7 @@
         "nawasara/ui": "*",
         "nawasara/keycloak": "*",
         "nawasara/search": "*",
+        "nawasara/vault": "*",
         "livewire/livewire": "^3.0"
     },
     "extra": {
