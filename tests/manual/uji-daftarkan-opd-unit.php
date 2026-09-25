@@ -58,9 +58,17 @@ $cek('OPD memang tidak dikenali', ($c->get('found')['opd'] ?? null) === null);
 
 $c->call('startCreateOpd');
 $cek('form terbuka', $c->get('creatingOpd') === true);
-$cek('nama OPD terisi teks utuh', $c->get('newOpdSimasName') === 'SEKRETARIAT DAERAH BAGIAN PEMERINTAHAN');
+/*
+ * Dulu kolom ini diisi teks UTUH dan pemotongannya diserahkan ke admin. Sekali
+ * lupa, simas_name menyimpan seluruh jawaban dan OPD itu tidak pernah cocok
+ * lagi dengan siapa pun. Sekarang pemisahannya ditebak, dan tebakannya tetap
+ * dapat dikoreksi di bawah ini.
+ */
+$cek('nama OPD sudah dipisah', $c->get('newOpdSimasName') === 'SEKRETARIAT DAERAH',
+    'dapat: '.$c->get('newOpdSimasName'));
 $cek('kode disarankan', $c->get('newOpdCode') !== '', 'saran: '.$c->get('newOpdCode'));
-$cek('bidang dibiarkan kosong (sistem tidak menebak)', $c->get('newUnitSimasName') === '');
+$cek('bidang masuk kolomnya sendiri', $c->get('newUnitSimasName') === 'BAGIAN PEMERINTAHAN',
+    'dapat: '.$c->get('newUnitSimasName'));
 
 echo "\n=== admin MEMBETULKAN pemisahannya ===\n";
 // Sistem menawarkan seluruh teks sebagai nama OPD. Admin tahu yang benar

@@ -78,7 +78,14 @@ $pasang('BADAN PENGHUBUNG DAERAH BIDANG KERJA SAMA');
 
 $c3 = Livewire::test(PicPicker::class)->set('nip', $nip)->call('lookup')->call('review');
 $cek('OPD memang tidak dikenali', ($c3->get('found')['opd'] ?? null) === null);
-$cek('kolom OPD terisi teks utuh', $c3->get('newOpdSimasName') === 'BADAN PENGHUBUNG DAERAH BIDANG KERJA SAMA');
+// Dulu kolom ini diisi teks UTUH dan admin diminta memotongnya sendiri. Itu
+// menghasilkan KECAMATAN BALONG dengan simas_name sepanjang seluruh jawaban,
+// yang lalu tidak mencocoki siapa pun lagi dari kecamatan itu. Sekarang
+// pemisahannya ditebak lebih dulu, dan tebakannya tetap dapat dikoreksi.
+$cek('nama OPD sudah dipisah dari bidangnya',
+    $c3->get('newOpdSimasName') === 'BADAN PENGHUBUNG DAERAH', 'dapat: '.$c3->get('newOpdSimasName'));
+$cek('bidangnya masuk kolom sendiri',
+    $c3->get('newUnitSimasName') === 'BIDANG KERJA SAMA', 'dapat: '.$c3->get('newUnitSimasName'));
 $cek('kode disarankan', $c3->get('newOpdCode') !== '');
 
 $sebelum = $hitung();

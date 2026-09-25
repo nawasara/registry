@@ -277,15 +277,86 @@ class PicPicker extends Component
             return;
         }
 
-        // Nothing recognised, so there is no prefix to split on: the whole
-        // string is offered as the OPD name and the bidang box starts empty.
-        // The admin splits it when the reply actually holds both.
-        $this->newOpdSimasName = $unitKerja;
-        $this->newOpdName = $unitKerja;
-        $this->newUnitSimasName = '';
-        $this->newUnitName = '';
+        // Nothing recognised, so there is no known prefix to split on. Offering
+        // the whole string as the OPD name and asking the admin to cut it left
+        // KECAMATAN BALONG registered with simas_name "KECAMATAN BALONG SEKSI
+        // PELAYANAN UMUM - KECAMATAN BALONG", which then matched nobody else
+        // from that kecamatan, silently.
+        //
+        // So the split is guessed here, from the words that introduce a
+        // sub-unit. The guess is visible and editable; what it prevents is the
+        // whole string being kept by default.
+        [$opdPart, $subPart] = $this->guessSplit($unitKerja);
+
+        $this->newOpdSimasName = $opdPart;
+        $this->newOpdName = $opdPart;
+        $this->newUnitSimasName = $subPart;
+        $this->newUnitName = $subPart;
         $this->newOpdParentId = null;
-        $this->newOpdCode = $this->suggestCode($unitKerja);
+        $this->newOpdCode = $this->suggestCode($opdPart);
+    }
+
+    /**
+     * Split `unit_kerja` at the first word that introduces a sub-unit.
+     *
+     * SIMAS joins the two names with nothing but a space, but the sub-unit
+     * almost always opens with one of a small set of words. Cutting there is a
+     * guess, not a rule, which is why the result lands in editable boxes.
+     *
+     * @return array{0: string, 1: string} [nama OPD, nama sub-unit]
+     */
+    protected function guessSplit(string $unitKerja): array
+    {
+        $unitKerja = trim($unitKerja);
+
+        // Beberapa jawaban mengulang nama OPD di belakang, dipisah tanda
+        // hubung: "KECAMATAN BALONG SEKSI ... - KECAMATAN BALONG".
+        $unitKerja = trim((string) preg_split('/\s+-\s+/', $unitKerja)[0]);
+
+        $penanda = ['BIDANG', 'SEKSI', 'SEKRETARIAT', 'SUB BAGIAN', 'SUBBAGIAN',
+            'BAGIAN', 'UPT', 'UPTD', 'PUSKESMAS', 'SD ', 'SMP ', 'SMA ', 'SMK ',
+            'TK ', 'KELURAHAN', 'DESA'];
+
+        $atas = mb_strtoupper($unitKerja);
+
+        $potong = null;
+        foreach ($penanda as $kata) {
+            $pos = mb_strpos($atas, $kata);
+
+            // Awalan 0 berarti seluruh teksnya memang sub-unit, bukan OPD.
+            if ($pos !== false && $pos > 0 && ($potong === null || $pos < $potong)) {
+                $potong = $pos;
+            }
+        }
+
+        if ($potong === null) {
+            return [$unitKerja, ''];
+        }
+
+        return [
+            trim(mb_substr($unitKerja, 0, $potong)),
+            trim(mb_substr($unitKerja, $potong)),
+        ];
+    }
+
+    /**
+     * Apakah nama OPD yang akan disimpan masih memuat nama bidangnya.
+     *
+     * Dipakai untuk memperingatkan di layar. Tanpa ini kesalahannya tidak
+     * terlihat sama sekali sampai berbulan-bulan kemudian, saat pegawai lain
+     * dari OPD yang sama tidak dikenali dan tidak ada yang tahu sebabnya.
+     */
+    public function getOpdNameLooksUnsplitProperty(): bool
+    {
+        $nama = trim($this->newOpdSimasName);
+
+        if ($nama === '' || ($this->found['opd'] ?? null)) {
+            return false;
+        }
+
+        [, $sisa] = $this->guessSplit($nama);
+
+        return $sisa !== '';
     }
 
     /**

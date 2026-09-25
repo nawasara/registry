@@ -217,9 +217,20 @@
                                         wire:model="newOpdSimasName"
                                         label="Nama OPD menurut SIMAS" />
                                     <p class="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
-                                        Potongan awal teks di atas. Dipakai untuk mencocokkan
-                                        pegawai berikutnya, jadi tulis persis seperti sumbernya.
+                                        Hanya nama OPD-nya, tanpa nama bidang. Dipakai untuk
+                                        mencocokkan pegawai berikutnya dari OPD yang sama.
                                     </p>
+
+                                    @if ($this->opdNameLooksUnsplit)
+                                        {{-- Kalau nama bidang ikut tersimpan di sini, pegawai
+                                             lain dari OPD yang sama tidak akan pernah dikenali,
+                                             dan tidak ada apa pun yang memberi tahu kenapa. --}}
+                                        <p class="mt-1 text-xs text-rose-600 dark:text-rose-400">
+                                            Sepertinya masih memuat nama bidang. Pindahkan
+                                            bagian itu ke kolom bidang di bawah, kalau tidak
+                                            pegawai lain dari OPD ini tidak akan dikenali.
+                                        </p>
+                                    @endif
                                 </div>
 
                                 <div>
