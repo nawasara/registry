@@ -8,6 +8,7 @@ use Nawasara\Registry\Exceptions\SimasHebatException;
 use Nawasara\Registry\Models\Membership;
 use Nawasara\Registry\Models\Opd;
 use Nawasara\Registry\Services\PicAssignmentService;
+use Nawasara\Registry\Services\UnitKerjaMatcher;
 use Nawasara\Keycloak\Models\KeycloakUser;
 use Nawasara\Keycloak\Support\KeycloakProfile;
 use Nawasara\Keycloak\Support\KeycloakUserProvisioner;
@@ -60,6 +61,37 @@ class PicPicker extends Component
     public string $foundState = '';
 
     public bool $searching = false;
+
+    /*
+     * Form pembuatan OPD / unit, terbuka hanya setelah pencarian berhasil.
+     *
+     * Isinya dapat dikoreksi admin, dan itu disengaja: pencocokan awalan bisa
+     * salah menebak batas antara nama OPD dan nama bidangnya. Tanpa jalan
+     * mengoreksi, tebakan yang keliru menjadi permanen.
+     *
+     * ⚠️ Yang dikoreksi hanya yang DITAMPILKAN. Potongan mentah dari SIMAS
+     * tetap disimpan apa adanya sebagai kunci pencocokan (lihat
+     * PicAssignmentService::createOpdFromSimas).
+     */
+    public bool $creatingOpd = false;
+
+    public string $newOpdCode = '';
+
+    /** Nama yang akan dibaca manusia. Boleh dirapikan. */
+    public string $newOpdName = '';
+
+    /** Potongan `unit_kerja` yang menjadi nama OPD, dipakai untuk mencocokkan. */
+    public string $newOpdSimasName = '';
+
+    /** Sisa `unit_kerja` setelah nama OPD dipotong, yaitu nama bidangnya. */
+    public string $newUnitSimasName = '';
+
+    public string $newUnitName = '';
+
+    /** OPD induk, untuk sekolah dan puskesmas yang bernaung di bawah dinas. */
+    public ?int $newOpdParentId = null;
+
+    public string $createError = '';
 
     public function mount(?int $opdId = null, ?int $pjUserId = null): void
     {
@@ -137,6 +169,179 @@ class PicPicker extends Component
     }
 
     /**
+     * Whether the bidang SIMAS named already exists under the matched OPD.
+     *
+     * Shown so the gap is visible: without it the screen looked complete while
+     * `unit_id` quietly stayed empty, since the name matched but nothing had
+     * ever created the row.
+     */
+    public function getUnitMissingProperty(): bool
+    {
+        $opd = $this->found['opd'] ?? null;
+        $sub = trim((string) ($this->found['sub_unit'] ?? ''));
+
+        if (! $opd || $sub === '') {
+            return false;
+        }
+
+        return app(PicAssignmentService::class)->findUnit($opd, $sub) === null;
+    }
+
+    /**
+     * Open the create form, pre-filled with the system's best guess.
+     *
+     * Everything in it is editable. Prefix matching decides where the OPD name
+     * ends and the sub-unit begins, and it can put that boundary in the wrong
+     * place: `DINAS PENDIDIKAN SD NEGERI 1 TEGALREJO` is unambiguous only
+     * because we happen to know `DINAS PENDIDIKAN`. For an OPD nobody has
+     * registered yet there is no known prefix at all, so the guess is the
+     * whole string and the admin is the one who can see it is wrong.
+     */
+    public function startCreateOpd(): void
+    {
+        if (! $this->found) {
+            return;
+        }
+
+        $this->createError = '';
+        $this->creatingOpd = true;
+
+        $unitKerja = trim((string) ($this->found['unit_kerja'] ?? ''));
+
+        // No prefix was recognised, so the whole string is offered as the OPD
+        // name and the sub-unit box starts empty. The admin splits it if the
+        // reply actually contains both.
+        $this->newOpdSimasName = $unitKerja;
+        $this->newOpdName = $unitKerja;
+        $this->newUnitSimasName = '';
+        $this->newUnitName = '';
+        $this->newOpdParentId = null;
+        $this->newOpdCode = $this->suggestCode($unitKerja);
+    }
+
+    /**
+     * Open the form for a sub-unit only: the OPD is already known, its bidang
+     * is not.
+     */
+    public function startCreateUnit(): void
+    {
+        if (! $this->found || ! ($this->found['opd'] ?? null)) {
+            return;
+        }
+
+        $this->createError = '';
+        $this->creatingOpd = true;
+
+        $this->newOpdSimasName = '';   // OPD sudah ada, tidak dibuat ulang
+        $this->newOpdName = '';
+        $this->newOpdCode = '';
+        $this->newOpdParentId = null;
+
+        $sub = trim((string) ($this->found['sub_unit'] ?? ''));
+        $this->newUnitSimasName = $sub;
+        $this->newUnitName = $sub;
+    }
+
+    public function cancelCreate(): void
+    {
+        $this->creatingOpd = false;
+        $this->createError = '';
+    }
+
+    /**
+     * Create the OPD and/or the sub-unit, then appoint the person.
+     *
+     * One button rather than three steps: the admin came here to put somebody
+     * in charge, and the missing rows are in the way of that, not a separate
+     * errand.
+     */
+    public function saveCreate(): void
+    {
+        if (! $this->found) {
+            return;
+        }
+
+        $this->createError = '';
+
+        $svc = app(PicAssignmentService::class);
+        $opd = $this->found['opd'] ?? null;
+
+        try {
+            if (! $opd) {
+                $code = strtoupper(trim($this->newOpdCode));
+                $simasName = trim($this->newOpdSimasName);
+
+                if ($code === '' || $simasName === '') {
+                    $this->createError = 'Kode dan nama OPD wajib diisi.';
+
+                    return;
+                }
+
+                if (Opd::where('code', $code)->exists()) {
+                    $this->createError = "Kode {$code} sudah dipakai OPD lain.";
+
+                    return;
+                }
+
+                $opd = $svc->createOpdFromSimas(
+                    simasData: $this->found,
+                    code: $code,
+                    parentId: $this->newOpdParentId,
+                    name: $this->newOpdName,
+                    simasName: $simasName,
+                );
+            }
+
+            if (trim($this->newUnitSimasName) !== '') {
+                $svc->createUnitFromSimas(
+                    opd: $opd,
+                    simasData: $this->found,
+                    subUnit: trim($this->newUnitSimasName),
+                    name: $this->newUnitName,
+                );
+            }
+        } catch (\Throwable $e) {
+            $this->createError = $e->getMessage();
+
+            return;
+        }
+
+        // The OPD now exists, so re-matching finds it and the picker can carry
+        // on as though it had been registered all along.
+        $this->found['opd'] = $opd;
+        $this->found['sub_unit'] = trim($this->newUnitSimasName) ?: ($this->found['sub_unit'] ?? null);
+
+        $this->creatingOpd = false;
+
+        $this->selectFound();
+    }
+
+    /**
+     * A starting point for the OPD code, which the admin then edits.
+     *
+     * Codes in production are human abbreviations (DISKOMINFO, BAKESRA) and
+     * SIMAS returns nothing like them, so this only saves typing; it is not
+     * trying to be right.
+     */
+    protected function suggestCode(string $unitKerja): string
+    {
+        $kata = preg_split('/\s+/', UnitKerjaMatcher::normalize($unitKerja)) ?: [];
+
+        // Buang kata sambung yang tidak menyumbang apa pun ke singkatan.
+        $kata = array_values(array_filter(
+            $kata,
+            fn ($k) => ! in_array($k, ['DAN', 'DI', 'KE', 'DARI', 'KABUPATEN', 'PONOROGO'], true)
+        ));
+
+        $singkatan = '';
+        foreach (array_slice($kata, 0, 4) as $k) {
+            $singkatan .= mb_substr($k, 0, min(4, mb_strlen($k)));
+        }
+
+        return mb_substr($singkatan, 0, 20);
+    }
+
+    /**
      * Appoint the person just looked up.
      *
      * Without this the screen was a dead end: it showed the right name, the
@@ -208,6 +413,14 @@ class PicPicker extends Component
         $this->found = null;
         $this->foundState = '';
         $this->lookupError = '';
+        $this->creatingOpd = false;
+        $this->createError = '';
+        $this->newOpdCode = '';
+        $this->newOpdName = '';
+        $this->newOpdSimasName = '';
+        $this->newUnitName = '';
+        $this->newUnitSimasName = '';
+        $this->newOpdParentId = null;
     }
 
     #[On('pic-picker-reset')]

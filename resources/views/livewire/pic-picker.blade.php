@@ -82,34 +82,166 @@
                             &middot; {{ $found['sub_unit'] }}
                         @endif
                     </p>
+
+                    @if ($this->unitMissing)
+                        {{-- Nama bidangnya cocok, tetapi barisnya belum pernah
+                             dibuat. Tanpa keterangan ini layarnya tampak beres
+                             sementara unit_id diam-diam tetap kosong. --}}
+                        <p class="text-xs text-amber-700 dark:text-amber-300">
+                            Bidang <strong>{{ $found['sub_unit'] }}</strong> belum terdaftar.
+                        </p>
+                    @endif
                 @else
                     {{-- OPD-nya belum ada di registry. Ini yang membuat
                          SEKRETARIAT DAERAH dan 19 kecamatan masuk sendiri. --}}
                     <p class="text-xs text-amber-700 dark:text-amber-300">
                         OPD <strong>{{ $found['unit_kerja'] }}</strong> belum terdaftar.
-                        Buat dulu saat menyimpan.
                     </p>
                 @endif
 
-                <div class="pt-2 flex items-center gap-2">
-                    @if ($foundState === 'belum_sso')
-                        {{-- Tanpa akun Keycloak tidak ada yang bisa ditautkan.
-                             Membuat akun lokal begitu saja melahirkan akun kedua
-                             saat orangnya benar-benar login nanti. --}}
-                        <p class="text-xs text-amber-700 dark:text-amber-300">
-                            Belum pernah masuk lewat SSO, jadi belum bisa dijadikan
-                            penanggung jawab.
-                        </p>
-                    @else
-                        <x-nawasara-ui::button color="primary" wire:click="selectFound">
-                            Jadikan Penanggung Jawab
-                        </x-nawasara-ui::button>
-                    @endif
+                @if (! $creatingOpd)
+                    <div class="pt-2 flex flex-wrap items-center gap-2">
+                        @if ($foundState === 'belum_sso')
+                            {{-- Tanpa akun Keycloak tidak ada yang bisa ditautkan.
+                                 Membuat akun lokal begitu saja melahirkan akun kedua
+                                 saat orangnya benar-benar login nanti. --}}
+                            <p class="text-xs text-amber-700 dark:text-amber-300">
+                                Belum pernah masuk lewat SSO, jadi belum bisa dijadikan
+                                penanggung jawab.
+                            </p>
+                        @elseif (! $found['opd'])
+                            <x-nawasara-ui::button color="warning" wire:click="startCreateOpd">
+                                Daftarkan OPD ini
+                            </x-nawasara-ui::button>
+                        @else
+                            <x-nawasara-ui::button color="primary" wire:click="selectFound">
+                                Jadikan Penanggung Jawab
+                            </x-nawasara-ui::button>
 
-                    <x-nawasara-ui::button color="neutral" wire:click="clearLookup">
-                        Hapus hasil
-                    </x-nawasara-ui::button>
-                </div>
+                            @if ($this->unitMissing)
+                                <x-nawasara-ui::button color="warning" wire:click="startCreateUnit">
+                                    Daftarkan bidangnya
+                                </x-nawasara-ui::button>
+                            @endif
+                        @endif
+
+                        <x-nawasara-ui::button color="neutral" wire:click="clearLookup">
+                            Hapus hasil
+                        </x-nawasara-ui::button>
+                    </div>
+                @endif
+
+                {{-- Form pendaftaran OPD / bidang.
+
+                     Semua isinya boleh dikoreksi. SIMAS memulangkan nama OPD
+                     dan nama bidang menyatu tanpa pemisah, jadi pemisahannya
+                     adalah tebakan sistem, dan tebakan itu bisa salah. Yang
+                     melihat layar ini tahu mana yang benar. --}}
+                @if ($creatingOpd)
+                    <div class="mt-3 rounded-lg border border-amber-300 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/30 p-3 space-y-3">
+                        <div>
+                            <p class="text-sm font-medium text-amber-800 dark:text-amber-200">
+                                Periksa sebelum didaftarkan
+                            </p>
+                            <p class="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
+                                Sistem memisahkan nama OPD dan bidang dari satu teks
+                                tanpa pemisah, jadi pemisahannya bisa meleset.
+                                Perbaiki bila perlu.
+                            </p>
+                        </div>
+
+                        <div class="rounded bg-white/60 dark:bg-neutral-800 p-2">
+                            <p class="text-xs text-neutral-500 dark:text-neutral-400">Teks asli dari SIMAS Hebat</p>
+                            <p class="text-xs text-neutral-800 dark:text-neutral-100 mt-0.5">
+                                {{ $found['unit_kerja'] }}
+                            </p>
+                        </div>
+
+                        @if ($newOpdSimasName !== '' || ! $found['opd'])
+                            <div class="space-y-2">
+                                <div>
+                                    <x-nawasara-ui::form.input
+                                        type="text"
+                                        wire:model="newOpdSimasName"
+                                        label="Nama OPD menurut SIMAS" />
+                                    <p class="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                                        Potongan awal teks di atas. Dipakai untuk mencocokkan
+                                        pegawai berikutnya, jadi tulis persis seperti sumbernya.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <x-nawasara-ui::form.input
+                                        type="text"
+                                        wire:model="newOpdName"
+                                        label="Nama OPD untuk ditampilkan" />
+                                    <p class="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                                        Boleh dirapikan. Tidak memengaruhi pencocokan.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <x-nawasara-ui::form.input
+                                        type="text"
+                                        wire:model="newOpdCode"
+                                        label="Kode OPD" />
+                                    <p class="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                                        Singkatan seperti DISKOMINFO atau BAKESRA. Saran di atas
+                                        hanya untuk menghemat ketikan.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <x-nawasara-ui::form.select
+                                        wire:model="newOpdParentId"
+                                        label="Bernaung di bawah (opsional)"
+                                        :options="$this->opdOptions"
+                                        placeholder="-- Berdiri sendiri --" />
+                                    <p class="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                                        Untuk sekolah dan puskesmas, yang instansinya sendiri
+                                        tetapi berada di bawah sebuah dinas.
+                                    </p>
+                                </div>
+                            </div>
+                        @endif
+
+                        <div class="border-t border-amber-300 dark:border-amber-700/50 pt-2 space-y-2">
+                            <div>
+                                <x-nawasara-ui::form.input
+                                    type="text"
+                                    wire:model="newUnitSimasName"
+                                    label="Nama bidang menurut SIMAS (opsional)" />
+                                <p class="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                                    Sisa teks setelah nama OPD. Kosongkan bila orang ini
+                                    tidak berada di bidang mana pun.
+                                </p>
+                            </div>
+
+                            @if ($newUnitSimasName !== '')
+                                <div>
+                                    <x-nawasara-ui::form.input
+                                        type="text"
+                                        wire:model="newUnitName"
+                                        label="Nama bidang untuk ditampilkan" />
+                                </div>
+                            @endif
+                        </div>
+
+                        @if ($createError !== '')
+                            <p class="text-xs text-rose-600 dark:text-rose-400">{{ $createError }}</p>
+                        @endif
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            <x-nawasara-ui::button color="primary" wire:click="saveCreate">
+                                Daftarkan dan jadikan Penanggung Jawab
+                            </x-nawasara-ui::button>
+
+                            <x-nawasara-ui::button color="neutral" wire:click="cancelCreate">
+                                Batal
+                            </x-nawasara-ui::button>
+                        </div>
+                    </div>
+                @endif
             </div>
         @endif
     </div>

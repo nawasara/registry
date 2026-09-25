@@ -179,10 +179,28 @@ class PicAssignmentService
      * memory: an OPD is a permission container, and one born without a
      * recorded reason cannot be reviewed by anyone later.
      *
+     * The admin MAY correct the display name. Prefix matching can pick the
+     * wrong boundary between the OPD and its sub-unit, and if there is no way
+     * to fix that on the spot, a mistake becomes permanent.
+     *
+     * ⚠️ But the correction touches `name` ONLY. `simas_name` stays exactly as
+     * the source wrote it, because that is what the next reply is matched
+     * against. Letting a tidy-up change the matching key would mean the next
+     * person from the same OPD is no longer recognised, and nothing would say
+     * why.
+     *
      * @param  array  $simasData  the reply that prompted this, stored in the audit trail
+     * @param  string|null  $name  admin's correction; the raw unit_kerja when null
+     * @param  string|null  $simasName  the OPD portion of unit_kerja; the whole
+     *                                  string when the admin did not split it
      */
-    public function createOpdFromSimas(array $simasData, string $code, ?int $parentId = null): Opd
-    {
+    public function createOpdFromSimas(
+        array $simasData,
+        string $code,
+        ?int $parentId = null,
+        ?string $name = null,
+        ?string $simasName = null,
+    ): Opd {
         $unitKerja = trim((string) ($simasData['unit_kerja'] ?? ''));
 
         if ($unitKerja === '') {
@@ -191,10 +209,13 @@ class PicAssignmentService
             );
         }
 
+        $simasName = trim((string) ($simasName ?: $unitKerja));
+        $name = trim((string) ($name ?: $simasName));
+
         $opd = Opd::create([
             'code' => $code,
-            'name' => $unitKerja,
-            'simas_name' => $unitKerja,
+            'name' => $name,
+            'simas_name' => $simasName,
             'parent_id' => $parentId,
         ]);
 
@@ -203,6 +224,9 @@ class PicAssignmentService
             ->withProperties([
                 'alasan' => 'unit_kerja tidak dikenali saat penetapan PIC',
                 'simas' => $this->auditableSimas($simasData),
+                // Recorded so a later reviewer can see the admin adjusted it,
+                // and compare against what the source actually said.
+                'dikoreksi_admin' => $name !== $unitKerja || $simasName !== $unitKerja,
                 'diambil_pada' => now()->toIso8601String(),
             ])
             ->log('OPD dibuat dari SIMAS Hebat');
@@ -212,9 +236,16 @@ class PicAssignmentService
 
     /**
      * Create a sub-unit under an OPD, again only from a SIMAS reply.
+     *
+     * Same split as above: `$name` is the admin's correction, `$subUnit` is
+     * the raw remainder from `unit_kerja` and becomes `simas_name`.
      */
-    public function createUnitFromSimas(Opd $opd, array $simasData, string $subUnit): Unit
-    {
+    public function createUnitFromSimas(
+        Opd $opd,
+        array $simasData,
+        string $subUnit,
+        ?string $name = null,
+    ): Unit {
         $subUnit = trim($subUnit);
 
         if ($subUnit === '') {
@@ -225,7 +256,7 @@ class PicAssignmentService
 
         $unit = Unit::firstOrCreate(
             ['opd_id' => $opd->id, 'simas_name' => $subUnit],
-            ['name' => $subUnit],
+            ['name' => trim((string) ($name ?: $subUnit))],
         );
 
         if ($unit->wasRecentlyCreated) {
