@@ -91,7 +91,21 @@
                     </p>
                 @endif
 
-                <div class="pt-1">
+                <div class="pt-2 flex items-center gap-2">
+                    @if ($foundState === 'belum_sso')
+                        {{-- Tanpa akun Keycloak tidak ada yang bisa ditautkan.
+                             Membuat akun lokal begitu saja melahirkan akun kedua
+                             saat orangnya benar-benar login nanti. --}}
+                        <p class="text-xs text-amber-700 dark:text-amber-300">
+                            Belum pernah masuk lewat SSO, jadi belum bisa dijadikan
+                            penanggung jawab.
+                        </p>
+                    @else
+                        <x-nawasara-ui::button color="primary" wire:click="selectFound">
+                            Jadikan Penanggung Jawab
+                        </x-nawasara-ui::button>
+                    @endif
+
                     <x-nawasara-ui::button color="neutral" wire:click="clearLookup">
                         Hapus hasil
                     </x-nawasara-ui::button>

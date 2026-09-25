@@ -8,7 +8,9 @@ use Nawasara\Registry\Exceptions\SimasHebatException;
 use Nawasara\Registry\Models\Membership;
 use Nawasara\Registry\Models\Opd;
 use Nawasara\Registry\Services\PicAssignmentService;
+use Nawasara\Keycloak\Models\KeycloakUser;
 use Nawasara\Keycloak\Support\KeycloakProfile;
+use Nawasara\Keycloak\Support\KeycloakUserProvisioner;
 
 /**
  * The OPD + PIC pair that every screen embeds, plus the NIP lookup behind it.
@@ -46,6 +48,16 @@ class PicPicker extends Component
     public ?array $found = null;
 
     public string $lookupError = '';
+
+    /**
+     * Whether the person just looked up can actually be appointed, and if not,
+     * why. Shown instead of the appoint button.
+     *
+     * 'siap'        — has a Nawasara account, or can be given one from the
+     *                 Keycloak directory
+     * 'belum_sso'   — not in Keycloak at all, so there is nothing to link to
+     */
+    public string $foundState = '';
 
     public bool $searching = false;
 
@@ -105,6 +117,7 @@ class PicPicker extends Component
     public function lookup(): void
     {
         $this->found = null;
+        $this->foundState = '';
         $this->lookupError = '';
 
         $nip = trim($this->nip);
@@ -117,15 +130,83 @@ class PicPicker extends Component
 
         try {
             $this->found = app(PicAssignmentService::class)->lookup($nip);
+            $this->foundState = $this->resolveAccount($nip) ? 'siap' : 'belum_sso';
         } catch (SimasHebatException $e) {
             $this->lookupError = $e->getMessage();
         }
+    }
+
+    /**
+     * Appoint the person just looked up.
+     *
+     * Without this the screen was a dead end: it showed the right name, the
+     * right jabatan and the matched OPD, then offered nothing to act on, so
+     * saving silently left the asset with no PIC at all. Nothing errored, and
+     * the gap only surfaced later when somebody noticed the person was not
+     * actually in charge.
+     */
+    public function selectFound(): void
+    {
+        if (! $this->found) {
+            return;
+        }
+
+        $user = $this->resolveAccount(trim($this->nip));
+
+        if (! $user) {
+            $this->lookupError = 'Pegawai ini belum pernah masuk lewat SSO, '
+                .'jadi belum punya akun yang dapat ditautkan.';
+
+            return;
+        }
+
+        // The OPD SIMAS recognised, when it recognised one. An unknown OPD
+        // leaves this alone: creating it is its own step, and it needs the
+        // reply as its basis (see PicAssignmentService::createOpdFromSimas).
+        if ($this->found['opd'] ?? null) {
+            $this->opdId = $this->found['opd']->id;
+        }
+
+        $this->pjUserId = $user->getAuthIdentifier();
+        $this->emitSelection();
+
+        $this->clearLookup();
+    }
+
+    /**
+     * The Nawasara account for this NIP, creating it from the Keycloak
+     * directory when the person has logged in via SSO but never been given a
+     * local row.
+     *
+     * Matching is by USERNAME: Keycloak's username is the NIP on every
+     * production account, which makes it the one field always present. The
+     * `nip` attribute exists on most but not all of them, so it is the
+     * cross-check rather than the source.
+     */
+    protected function resolveAccount(string $nip): ?object
+    {
+        $userModel = config('auth.providers.users.model');
+
+        $user = $userModel::where('username', $nip)->first();
+
+        if ($user) {
+            return $user;
+        }
+
+        $kc = KeycloakUser::where('username', $nip)->first();
+
+        if (! $kc) {
+            return null;
+        }
+
+        return app(KeycloakUserProvisioner::class)->fromSnapshot($kc);
     }
 
     public function clearLookup(): void
     {
         $this->nip = '';
         $this->found = null;
+        $this->foundState = '';
         $this->lookupError = '';
     }
 
