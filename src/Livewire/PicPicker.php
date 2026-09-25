@@ -93,6 +93,9 @@ class PicPicker extends Component
 
     public string $createError = '';
 
+    /** Konfirmasi setelah OPD/bidang tersimpan tanpa penetapan PIC. */
+    public string $createdNotice = '';
+
     public function mount(?int $opdId = null, ?int $pjUserId = null): void
     {
         $this->opdId = $opdId;
@@ -230,6 +233,7 @@ class PicPicker extends Component
         }
 
         $this->createError = '';
+        $this->createdNotice = '';
         $this->creatingOpd = true;
 
         $unitKerja = trim((string) ($this->found['unit_kerja'] ?? ''));
@@ -300,6 +304,7 @@ class PicPicker extends Component
     {
         $this->creatingOpd = false;
         $this->createError = '';
+        $this->createdNotice = '';
     }
 
     /**
@@ -366,6 +371,17 @@ class PicPicker extends Component
         $this->found['sub_unit'] = trim($this->newUnitSimasName) ?: ($this->found['sub_unit'] ?? null);
 
         $this->creatingOpd = false;
+
+        // Someone with no Keycloak account cannot be appointed, but the OPD and
+        // bidang just created are real work and stay. Calling selectFound() here
+        // would only overwrite the confirmation with an error about the account,
+        // making it look as though nothing had been saved.
+        if ($this->foundState === 'belum_sso') {
+            $this->createdNotice = 'Tersimpan. Orangnya belum bisa ditetapkan '
+                .'karena belum pernah masuk lewat SSO.';
+
+            return;
+        }
 
         $this->selectFound();
     }
@@ -469,6 +485,7 @@ class PicPicker extends Component
         $this->lookupError = '';
         $this->creatingOpd = false;
         $this->createError = '';
+        $this->createdNotice = '';
         $this->newOpdCode = '';
         $this->newOpdName = '';
         $this->newOpdSimasName = '';

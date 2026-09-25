@@ -99,16 +99,37 @@
                     </p>
                 @endif
 
+                @if ($createdNotice !== '')
+                    <p class="text-xs text-emerald-700 dark:text-emerald-300">
+                        {{ $createdNotice }}
+                    </p>
+                @elseif ($foundState === 'belum_sso')
+                    {{-- Menautkan akun harus lewat Keycloak, dan orangnya belum
+                         ada di sana. Membuat akun lokal begitu saja melahirkan
+                         akun kedua saat ia benar-benar login nanti, dan keduanya
+                         tidak saling mengenal. --}}
+                    <p class="text-xs text-amber-700 dark:text-amber-300">
+                        Belum pernah masuk lewat SSO, jadi belum bisa dijadikan
+                        penanggung jawab.
+                        @if (! $found['opd'] || $this->unitMissing)
+                            OPD dan bidangnya tetap dapat didaftarkan sekarang.
+                        @endif
+                    </p>
+                @endif
+
                 @if (! $creatingOpd)
                     <div class="pt-2 flex flex-wrap items-center gap-2">
                         @if ($foundState === 'belum_sso')
-                            {{-- Tanpa akun Keycloak tidak ada yang bisa ditautkan.
-                                 Membuat akun lokal begitu saja melahirkan akun kedua
-                                 saat orangnya benar-benar login nanti. --}}
-                            <p class="text-xs text-amber-700 dark:text-amber-300">
-                                Belum pernah masuk lewat SSO, jadi belum bisa dijadikan
-                                penanggung jawab.
-                            </p>
+                            {{-- Orangnya belum bisa ditetapkan, tetapi OPD dan
+                                 bidangnya tetap bisa didaftarkan: keduanya tidak
+                                 ada hubungannya dengan akun. Menutup semua jalan
+                                 di sini membuat admin buntu padahal ada pekerjaan
+                                 yang jelas bisa diselesaikan. --}}
+                            @if (! $found['opd'] || $this->unitMissing)
+                                <x-nawasara-ui::button color="warning" wire:click="review">
+                                    Daftarkan {{ $found['opd'] ? 'bidangnya' : 'OPD-nya' }}
+                                </x-nawasara-ui::button>
+                            @endif
                         @else
                             {{-- Satu jalan, selalu lewat langkah pemeriksaan.
 
@@ -279,7 +300,11 @@
 
                         <div class="flex flex-wrap items-center gap-2">
                             <x-nawasara-ui::button color="primary" wire:click="saveCreate">
-                                Simpan dan jadikan Penanggung Jawab
+                                @if ($foundState === 'belum_sso')
+                                    Simpan OPD dan bidangnya
+                                @else
+                                    Simpan dan jadikan Penanggung Jawab
+                                @endif
                             </x-nawasara-ui::button>
 
                             <x-nawasara-ui::button color="neutral" wire:click="cancelCreate">
