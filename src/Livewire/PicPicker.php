@@ -50,13 +50,22 @@ class PicPicker extends Component
 
     public string $lookupError = '';
 
+    /** Orangnya sudah punya akun, atau ada di direktori Keycloak. */
+    public const ACCOUNT_LINKED = 'linked';
+
+    /** Belum ada di mana pun; akunnya dibuat dari data SIMAS saat ditetapkan. */
+    public const ACCOUNT_WILL_CREATE = 'will_create';
+
     /**
-     * Whether the person just looked up can actually be appointed, and if not,
-     * why. Shown instead of the appoint button.
+     * Keadaan akun orang yang baru dicari, salah satu ACCOUNT_* di atas.
      *
-     * 'siap'        — has a Nawasara account, or can be given one from the
-     *                 Keycloak directory
-     * 'belum_sso'   — not in Keycloak at all, so there is nothing to link to
+     * Keduanya dapat ditetapkan. Bedanya dikatakan di layar, bukan dipakai
+     * untuk memblokir: yang kedua membuat akun baru, dan admin pantas tahu
+     * sebelum menekan tombolnya.
+     *
+     * Tetap konstanta meski nilainya cuma dibandingkan di dua tempat: string
+     * telanjang yang salah ketik tidak menghasilkan galat apa pun, cabangnya
+     * hanya diam tidak pernah jalan.
      */
     public string $foundState = '';
 
@@ -165,10 +174,24 @@ class PicPicker extends Component
 
         try {
             $this->found = app(PicAssignmentService::class)->lookup($nip);
-            $this->foundState = $this->resolveAccount($nip) ? 'siap' : 'belum_sso';
+            // Tanpa `create: true`: pencarian tidak boleh menulis apa pun.
+            $this->foundState = $this->resolveAccount($nip)
+                ? self::ACCOUNT_LINKED
+                : self::ACCOUNT_WILL_CREATE;
         } catch (SimasHebatException $e) {
             $this->lookupError = $e->getMessage();
         }
+    }
+
+    /**
+     * Apakah akunnya akan dibuat saat ditetapkan nanti.
+     *
+     * Disediakan supaya blade tidak perlu menulis nama kelas penuh untuk
+     * membaca konstantanya, dan tidak jatuh kembali ke string telanjang.
+     */
+    public function getWillCreateAccountProperty(): bool
+    {
+        return $this->foundState === self::ACCOUNT_WILL_CREATE;
     }
 
     /**
@@ -372,17 +395,6 @@ class PicPicker extends Component
 
         $this->creatingOpd = false;
 
-        // Someone with no Keycloak account cannot be appointed, but the OPD and
-        // bidang just created are real work and stay. Calling selectFound() here
-        // would only overwrite the confirmation with an error about the account,
-        // making it look as though nothing had been saved.
-        if ($this->foundState === 'belum_sso') {
-            $this->createdNotice = 'Tersimpan. Orangnya belum bisa ditetapkan '
-                .'karena belum pernah masuk lewat SSO.';
-
-            return;
-        }
-
         $this->selectFound();
     }
 
@@ -426,11 +438,12 @@ class PicPicker extends Component
             return;
         }
 
-        $user = $this->resolveAccount(trim($this->nip));
+        // `create: true` — akunnya dibuat di sini bila belum ada. Lihat
+        // resolveAccount() untuk alasan mengapa ini tidak melahirkan akun ganda.
+        $user = $this->resolveAccount(trim($this->nip), create: true);
 
         if (! $user) {
-            $this->lookupError = 'Pegawai ini belum pernah masuk lewat SSO, '
-                .'jadi belum punya akun yang dapat ditautkan.';
+            $this->lookupError = 'Akun untuk pegawai ini tidak dapat dibuat.';
 
             return;
         }
@@ -458,7 +471,7 @@ class PicPicker extends Component
      * `nip` attribute exists on most but not all of them, so it is the
      * cross-check rather than the source.
      */
-    protected function resolveAccount(string $nip): ?object
+    protected function resolveAccount(string $nip, bool $create = false): ?object
     {
         $userModel = config('auth.providers.users.model');
 
@@ -470,11 +483,24 @@ class PicPicker extends Component
 
         $kc = KeycloakUser::where('username', $nip)->first();
 
-        if (! $kc) {
+        if ($kc) {
+            return app(KeycloakUserProvisioner::class)->fromSnapshot($kc);
+        }
+
+        if (! $create) {
             return null;
         }
 
-        return app(KeycloakUserProvisioner::class)->fromSnapshot($kc);
+        // Tidak ada di Keycloak, tetapi SIMAS Hebat mengenalinya. Akunnya
+        // dibuat dari identitas itu, dengan username = NIP.
+        //
+        // Aman dari akun ganda justru KARENA username-nya NIP: saat orangnya
+        // benar-benar login, penautan mencari lewat keycloak_id lalu username,
+        // menemukan baris ini, dan mengadopsinya.
+        return app(KeycloakUserProvisioner::class)->fromExternalIdentity(
+            username: $nip,
+            name: (string) ($this->found['nama_lengkap'] ?? $nip),
+        );
     }
 
     public function clearLookup(): void

@@ -103,45 +103,27 @@
                     <p class="text-xs text-emerald-700 dark:text-emerald-300">
                         {{ $createdNotice }}
                     </p>
-                @elseif ($foundState === 'belum_sso')
-                    {{-- Menautkan akun harus lewat Keycloak, dan orangnya belum
-                         ada di sana. Membuat akun lokal begitu saja melahirkan
-                         akun kedua saat ia benar-benar login nanti, dan keduanya
-                         tidak saling mengenal. --}}
+                @elseif ($this->willCreateAccount)
+                    {{-- Akunnya akan dibuat, dan itu dikatakan sebelum tombolnya
+                         ditekan: menambah pengguna baru pantas diketahui, bukan
+                         terjadi diam-diam. --}}
                     <p class="text-xs text-amber-700 dark:text-amber-300">
-                        Belum pernah masuk lewat SSO, jadi belum bisa dijadikan
-                        penanggung jawab.
-                        @if (! $found['opd'] || $this->unitMissing)
-                            OPD dan bidangnya tetap dapat didaftarkan sekarang.
-                        @endif
+                        Belum punya akun Nawasara. Akan dibuatkan akun SSO
+                        dengan NIP sebagai nama pengguna.
                     </p>
                 @endif
 
                 @if (! $creatingOpd)
                     <div class="pt-2 flex flex-wrap items-center gap-2">
-                        @if ($foundState === 'belum_sso')
-                            {{-- Orangnya belum bisa ditetapkan, tetapi OPD dan
-                                 bidangnya tetap bisa didaftarkan: keduanya tidak
-                                 ada hubungannya dengan akun. Menutup semua jalan
-                                 di sini membuat admin buntu padahal ada pekerjaan
-                                 yang jelas bisa diselesaikan. --}}
-                            @if (! $found['opd'] || $this->unitMissing)
-                                <x-nawasara-ui::button color="warning" wire:click="review">
-                                    Daftarkan {{ $found['opd'] ? 'bidangnya' : 'OPD-nya' }}
-                                </x-nawasara-ui::button>
-                            @endif
-                        @else
-                            {{-- Satu jalan, selalu lewat langkah pemeriksaan.
+                        {{-- Satu jalan, selalu lewat langkah pemeriksaan.
 
-                                 Melewatinya saat semuanya "sudah dikenali"
-                                 berarti melewatkan pemeriksaan justru di
-                                 tempat salah deteksi paling berbahaya: yang
-                                 sistemnya merasa yakin, sehingga tidak ada
-                                 yang memeriksanya lagi. --}}
-                            <x-nawasara-ui::button color="primary" wire:click="review">
-                                Periksa &amp; jadikan Penanggung Jawab
-                            </x-nawasara-ui::button>
-                        @endif
+                             Melewatinya saat semuanya "sudah dikenali" berarti
+                             melewatkan pemeriksaan justru di tempat salah
+                             deteksi paling berbahaya: yang sistemnya merasa
+                             yakin, sehingga tidak ada yang memeriksanya lagi. --}}
+                        <x-nawasara-ui::button color="primary" wire:click="review">
+                            Periksa &amp; jadikan Penanggung Jawab
+                        </x-nawasara-ui::button>
 
                         <x-nawasara-ui::button color="neutral" wire:click="clearLookup">
                             Hapus hasil
@@ -207,6 +189,9 @@
 
                             <p class="text-xs text-neutral-800 dark:text-neutral-100">
                                 Penanggung jawab: <strong>{{ $found['nama_lengkap'] }}</strong>
+                                @if ($this->willCreateAccount)
+                                    <span class="text-amber-700 dark:text-amber-300">(akun akan dibuat)</span>
+                                @endif
                             </p>
                         </div>
 
@@ -300,11 +285,7 @@
 
                         <div class="flex flex-wrap items-center gap-2">
                             <x-nawasara-ui::button color="primary" wire:click="saveCreate">
-                                @if ($foundState === 'belum_sso')
-                                    Simpan OPD dan bidangnya
-                                @else
-                                    Simpan dan jadikan Penanggung Jawab
-                                @endif
+                                Simpan dan jadikan Penanggung Jawab
                             </x-nawasara-ui::button>
 
                             <x-nawasara-ui::button color="neutral" wire:click="cancelCreate">

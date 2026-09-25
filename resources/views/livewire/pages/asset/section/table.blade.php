@@ -177,7 +177,7 @@
             <livewire:nawasara-registry.pic-picker
                 :opd-id="$assetOpdId ?: null"
                 :pj-user-id="$assetPjUserId ?: null"
-                :key="'pic-picker-'.($editingId ?? 'baru')" />
+                :key="'pic-picker-'.($editingId ?? 'new')" />
 
             @if ($picMismatch)
                 {{-- Ditahan, bukan diperbaiki sendiri: yang dipertaruhkan
