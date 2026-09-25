@@ -109,20 +109,17 @@
                                 Belum pernah masuk lewat SSO, jadi belum bisa dijadikan
                                 penanggung jawab.
                             </p>
-                        @elseif (! $found['opd'])
-                            <x-nawasara-ui::button color="warning" wire:click="startCreateOpd">
-                                Daftarkan OPD ini
-                            </x-nawasara-ui::button>
                         @else
-                            <x-nawasara-ui::button color="primary" wire:click="selectFound">
-                                Jadikan Penanggung Jawab
-                            </x-nawasara-ui::button>
+                            {{-- Satu jalan, selalu lewat langkah pemeriksaan.
 
-                            @if ($this->unitMissing)
-                                <x-nawasara-ui::button color="warning" wire:click="startCreateUnit">
-                                    Daftarkan bidangnya
-                                </x-nawasara-ui::button>
-                            @endif
+                                 Melewatinya saat semuanya "sudah dikenali"
+                                 berarti melewatkan pemeriksaan justru di
+                                 tempat salah deteksi paling berbahaya: yang
+                                 sistemnya merasa yakin, sehingga tidak ada
+                                 yang memeriksanya lagi. --}}
+                            <x-nawasara-ui::button color="primary" wire:click="review">
+                                Periksa &amp; jadikan Penanggung Jawab
+                            </x-nawasara-ui::button>
                         @endif
 
                         <x-nawasara-ui::button color="neutral" wire:click="clearLookup">
@@ -141,12 +138,12 @@
                     <div class="mt-3 rounded-lg border border-amber-300 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/30 p-3 space-y-3">
                         <div>
                             <p class="text-sm font-medium text-amber-800 dark:text-amber-200">
-                                Periksa sebelum didaftarkan
+                                Periksa sebelum disimpan
                             </p>
                             <p class="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-                                Sistem memisahkan nama OPD dan bidang dari satu teks
-                                tanpa pemisah, jadi pemisahannya bisa meleset.
-                                Perbaiki bila perlu.
+                                Belum ada yang tersimpan. Sistem memisahkan nama OPD
+                                dan bidang dari satu teks tanpa pemisah, jadi
+                                pemisahannya bisa meleset. Perbaiki bila perlu.
                             </p>
                         </div>
 
@@ -156,6 +153,55 @@
                                 {{ $found['unit_kerja'] }}
                             </p>
                         </div>
+
+                        {{-- Apa yang akan terjadi, dinyatakan terang. Tanpa ini
+                             admin tidak tahu mana yang sudah ada dan mana yang
+                             akan lahir dari penekanan tombol ini. --}}
+                        <div class="rounded bg-white/60 dark:bg-neutral-800 p-2 space-y-1">
+                            <p class="text-xs text-neutral-500 dark:text-neutral-400">Yang akan disimpan</p>
+
+                            <p class="text-xs text-neutral-800 dark:text-neutral-100">
+                                OPD:
+                                @if ($found['opd'])
+                                    <strong>{{ $found['opd']->name }}</strong>
+                                    <span class="text-neutral-500 dark:text-neutral-400">(sudah terdaftar)</span>
+                                @else
+                                    <strong>{{ $newOpdName ?: '(belum diisi)' }}</strong>
+                                    <span class="text-amber-700 dark:text-amber-300">(akan dibuat)</span>
+                                @endif
+                            </p>
+
+                            <p class="text-xs text-neutral-800 dark:text-neutral-100">
+                                Bidang:
+                                @if (trim($newUnitSimasName) === '')
+                                    <span class="text-neutral-500 dark:text-neutral-400">tidak ada</span>
+                                @elseif ($found['opd'] && ! $this->unitMissing)
+                                    <strong>{{ $newUnitName ?: $newUnitSimasName }}</strong>
+                                    <span class="text-neutral-500 dark:text-neutral-400">(sudah terdaftar)</span>
+                                @else
+                                    <strong>{{ $newUnitName ?: $newUnitSimasName }}</strong>
+                                    <span class="text-amber-700 dark:text-amber-300">(akan dibuat)</span>
+                                @endif
+                            </p>
+
+                            <p class="text-xs text-neutral-800 dark:text-neutral-100">
+                                Penanggung jawab: <strong>{{ $found['nama_lengkap'] }}</strong>
+                            </p>
+                        </div>
+
+                        @if ($found['opd'] && $newOpdSimasName === '')
+                            {{-- OPD sudah dikenali, jadi kolomnya tidak perlu
+                                 diisi. Tetapi pencocokan bisa salah mengenali
+                                 OPD yang mirip namanya, dan tanpa jalan keluar
+                                 di sini admin hanya bisa membatalkan. --}}
+                            <p class="text-xs text-neutral-600 dark:text-neutral-400">
+                                OPD-nya salah?
+                                <button type="button" wire:click="forceCreateOpd"
+                                    class="underline text-amber-700 dark:text-amber-300">
+                                    daftarkan sebagai OPD lain
+                                </button>
+                            </p>
+                        @endif
 
                         @if ($newOpdSimasName !== '' || ! $found['opd'])
                             <div class="space-y-2">
@@ -233,7 +279,7 @@
 
                         <div class="flex flex-wrap items-center gap-2">
                             <x-nawasara-ui::button color="primary" wire:click="saveCreate">
-                                Daftarkan dan jadikan Penanggung Jawab
+                                Simpan dan jadikan Penanggung Jawab
                             </x-nawasara-ui::button>
 
                             <x-nawasara-ui::button color="neutral" wire:click="cancelCreate">

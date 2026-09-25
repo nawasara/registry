@@ -169,7 +169,9 @@
 
     {{-- Modal Create/Edit --}}
     <x-nawasara-ui::modal id="registry-asset-form" :title="$editingId ? 'Edit Aset' : 'Tambah Aset'">
-        <form wire:submit="saveAsset" id="registry-asset-form" class="space-y-4">
+        {{-- id berbeda dari modalnya. Keduanya sempat sama, dan id ganda di
+             satu halaman membuat elemen yang dirujuk menjadi tidak pasti. --}}
+        <form wire:submit="saveAsset" id="registry-asset-form-el" class="space-y-4">
             {{-- OPD + Penanggung Jawab + pencarian NIP, satu komponen bersama.
                  Sebelumnya, OPD tanpa anggota membuat admin buntu di sini. --}}
             <livewire:nawasara-registry.pic-picker
@@ -255,7 +257,7 @@
                 @click="$dispatch('close-modal', 'registry-asset-form')">
                 Batal
             </x-nawasara-ui::button>
-            <x-nawasara-ui::button type="submit" form="registry-asset-form" color="primary">Simpan</x-nawasara-ui::button>
+            <x-nawasara-ui::button type="submit" form="registry-asset-form-el" color="primary">Simpan</x-nawasara-ui::button>
         </x-slot:footer>
     </x-nawasara-ui::modal>
 </div>

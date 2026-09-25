@@ -199,6 +199,32 @@ class PicPicker extends Component
      */
     public function startCreateOpd(): void
     {
+        $this->review();
+    }
+
+    public function startCreateUnit(): void
+    {
+        $this->review();
+    }
+
+    /**
+     * Open the confirmation step. ALWAYS, even when everything was recognised.
+     *
+     * This is the last point before anything reaches the database, and it
+     * exists because the matcher can be confidently wrong. SIMAS returns the
+     * OPD name and the bidang name as one string with no separator, so where
+     * one ends and the other begins is inferred, and a longest-prefix match
+     * that lands on the wrong boundary produces a result that looks perfectly
+     * ordinary on screen.
+     *
+     * Showing this only for unrecognised rows would skip review exactly where
+     * a wrong match is most dangerous: the cases the system feels sure about,
+     * which nobody would then check.
+     *
+     * Nothing here is written yet. Writing happens in saveCreate().
+     */
+    public function review(): void
+    {
         if (! $this->found) {
             return;
         }
@@ -207,10 +233,26 @@ class PicPicker extends Component
         $this->creatingOpd = true;
 
         $unitKerja = trim((string) ($this->found['unit_kerja'] ?? ''));
+        $opd = $this->found['opd'] ?? null;
 
-        // No prefix was recognised, so the whole string is offered as the OPD
-        // name and the sub-unit box starts empty. The admin splits it if the
-        // reply actually contains both.
+        if ($opd) {
+            // Recognised. The boxes show what was matched so the admin can see
+            // the split, and the OPD fields stay empty because it exists.
+            $this->newOpdSimasName = '';
+            $this->newOpdName = '';
+            $this->newOpdCode = '';
+            $this->newOpdParentId = null;
+
+            $sub = trim((string) ($this->found['sub_unit'] ?? ''));
+            $this->newUnitSimasName = $sub;
+            $this->newUnitName = $this->existingUnitName($opd, $sub) ?: $sub;
+
+            return;
+        }
+
+        // Nothing recognised, so there is no prefix to split on: the whole
+        // string is offered as the OPD name and the bidang box starts empty.
+        // The admin splits it when the reply actually holds both.
         $this->newOpdSimasName = $unitKerja;
         $this->newOpdName = $unitKerja;
         $this->newUnitSimasName = '';
@@ -220,26 +262,38 @@ class PicPicker extends Component
     }
 
     /**
-     * Open the form for a sub-unit only: the OPD is already known, its bidang
-     * is not.
+     * Treat a recognised OPD as wrong and register a different one instead.
+     *
+     * The matcher takes the longest known prefix, which can claim a reply that
+     * belongs to an OPD nobody has registered yet: `DINAS PENDIDIKAN` matches
+     * the opening of `DINAS PENDIDIKAN DAN KEBUDAYAAN ...` too. Without this,
+     * an admin who can see the match is wrong could only cancel.
      */
-    public function startCreateUnit(): void
+    public function forceCreateOpd(): void
     {
-        if (! $this->found || ! ($this->found['opd'] ?? null)) {
+        if (! $this->found) {
             return;
         }
 
-        $this->createError = '';
-        $this->creatingOpd = true;
+        $unitKerja = trim((string) ($this->found['unit_kerja'] ?? ''));
 
-        $this->newOpdSimasName = '';   // OPD sudah ada, tidak dibuat ulang
-        $this->newOpdName = '';
-        $this->newOpdCode = '';
+        $this->found['opd'] = null;
+        $this->newOpdSimasName = $unitKerja;
+        $this->newOpdName = $unitKerja;
+        $this->newOpdCode = $this->suggestCode($unitKerja);
+        $this->newUnitSimasName = '';
+        $this->newUnitName = '';
         $this->newOpdParentId = null;
+    }
 
-        $sub = trim((string) ($this->found['sub_unit'] ?? ''));
-        $this->newUnitSimasName = $sub;
-        $this->newUnitName = $sub;
+    /** Display name of a bidang that already exists, else null. */
+    protected function existingUnitName(Opd $opd, string $subUnit): ?string
+    {
+        if ($subUnit === '') {
+            return null;
+        }
+
+        return app(PicAssignmentService::class)->findUnit($opd, $subUnit)?->name;
     }
 
     public function cancelCreate(): void
