@@ -140,23 +140,25 @@ class SimasHebatClient
      */
     public function testConnection(): array
     {
-        $nip = (string) config('nawasara-registry.simas.test_nip', '');
-
-        if ($nip === '') {
-            return [
-                'success' => false,
-                'message' => 'Setel `nawasara-registry.simas.test_nip` untuk menguji koneksi.',
-            ];
-        }
+        // Bawaannya NIP yang pasti tidak ada, sama seperti tombol Uji PDAM:
+        // SIMAS menjawabnya 404 "Pegawai not found" (diperiksa 6 Oktober 2026),
+        // yang sudah membuktikan alamat benar dan token diterima, tanpa menarik
+        // data pegawai sungguhan ke layar admin. Token yang ditolak dijawab
+        // 401/403, jadi tidak tertukar.
+        $nip = (string) config('nawasara-registry.simas.test_nip', '') ?: '000000000000000000';
 
         try {
             $data = $this->pegawai($nip);
 
             return [
                 'success' => true,
-                'message' => 'Terhubung — '.$data['nama_lengkap'],
+                'message' => 'Terhubung ke SIMAS Hebat. Data uji terbaca: '.$data['nama_lengkap'],
             ];
         } catch (SimasHebatException $e) {
+            if ($e->errorCode === 'simas_not_found') {
+                return ['success' => true, 'message' => 'Terhubung ke SIMAS Hebat, token diterima.'];
+            }
+
             return ['success' => false, 'message' => $e->getMessage()];
         }
     }

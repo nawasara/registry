@@ -30,7 +30,9 @@ return [
         'vault_group' => 'simas-hebat',
         'timeout' => 15,
 
-        // NIP used by the Vault "Test" button. Any real one will do.
+        // NIP for the Vault "Test" button. Leave empty: the button then uses a
+        // NIP that cannot exist, and SIMAS answering "not found" already proves
+        // the URL and token work without showing a real employee's data.
         'test_nip' => env('SIMAS_TEST_NIP', ''),
 
         // How long employment data may sit before the UI calls it stale.

@@ -78,6 +78,32 @@ class RegistryServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/nawasara-registry.php', 'nawasara-registry');
+
+        // Tombol "Uji" di panel Vault memanggil `SimasHebatClient@testConnection`
+        // lewat container. Konstruktornya butuh alamat, token, dan app_id, dan
+        // tanpa pengikatan ini container tidak tahu dari mana mengambilnya:
+        // "Unresolvable dependency resolving [string $baseUrl]".
+        $this->app->bind(Services\SimasHebatClient::class, function () {
+            return Services\SimasHebatClient::fromVault()
+                ?? throw new \RuntimeException('Kredensial SIMAS Hebat belum diatur di Vault (grup `simas-hebat`).');
+        });
+
+        // ⚠️ Didaftarkan sendiri, bukan dibiarkan dibangun otomatis.
+        //
+        // Kalau dibangun otomatis, container akan menyuntikkan SimasHebatClient
+        // lewat pengikatan di atas, yang melempar saat Vault kosong. Akibatnya
+        // SELURUH layar aset gagal dibuka, padahal yang tidak tersedia hanya
+        // pencarian NIP. Container tidak jatuh ke nilai bawaan `null` dalam
+        // kasus ini (sudah diuji), jadi jangan mengandalkannya.
+        //
+        // `fromVault()` memulangkan null saat kosong, dan PicAssignmentService
+        // menjawabnya dengan pesan "belum diatur" hanya ketika NIP dicari.
+        $this->app->bind(Services\PicAssignmentService::class, function () {
+            return new Services\PicAssignmentService(
+                Services\SimasHebatClient::fromVault(),
+                new Services\UnitKerjaMatcher,
+            );
+        });
     }
 
     public function registerLivewire(): void
