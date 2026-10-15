@@ -94,6 +94,32 @@ class MembershipResolver
         return $user->hasAnyRole($privilegedRoles);
     }
 
+    /**
+     * Bolehkah user dengan resolusi ini menulis `opd_id` = $target?
+     *
+     * Audit keamanan 15 Oktober 2026, temuan S3: lingkup OPD sebelumnya hanya
+     * menyaring BACA. Aturan tulisnya mengikuti tiga keadaan yang sama:
+     *
+     *   privileged: bebas, itulah gunanya tingkat admin
+     *   member:     hanya ke OPD-nya sendiri, dan baris lama pun harus
+     *               berasal dari OPD-nya (tidak boleh "memindahkan keluar")
+     *   restricted: tidak boleh menulis `opd_id` apa pun (fail-closed)
+     *
+     * Fungsi murni supaya dapat diuji tanpa basis data.
+     *
+     * @param  array{state: string, opdId: int|null}  $resolution
+     */
+    public static function allowsOpdWrite(array $resolution, ?int $target, bool $exists, ?int $original): bool
+    {
+        return match ($resolution['state'] ?? 'restricted') {
+            'privileged' => true,
+            'member' => $resolution['opdId'] !== null
+                && $target === $resolution['opdId']
+                && (! $exists || $original === $resolution['opdId']),
+            default => false,
+        };
+    }
+
     /** Convenience: the OPD id for a member, else null. */
     public function opdIdFor(?Authenticatable $user): ?int
     {

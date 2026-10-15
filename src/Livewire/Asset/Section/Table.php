@@ -6,8 +6,11 @@ use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
+use Nawasara\AuthPrimitives\Attributes\RequiresSudo;
+use Nawasara\AuthPrimitives\Traits\WithSudo;
 use Nawasara\Registry\Exceptions\PicMismatchException;
 use Nawasara\Registry\Exceptions\SimasHebatException;
 use Nawasara\Registry\Models\Asset;
@@ -21,6 +24,7 @@ class Table extends Component
     use HasBrowserToast;
     use HasExport;
     use WithPagination;
+    use WithSudo;
 
     // #[Url] so the command palette can deep-link ?search=<term> and prefill.
     #[Url(except: '')]
@@ -49,6 +53,13 @@ class Table extends Component
     public bool $onlyDiscovered = false;
 
     // Modal state
+    //
+    // #[Locked] pada editingId, picMismatch, dan picSimasError (audit
+    // keamanan 15 Oktober 2026): ketiganya hanya diisi server. Tanpa kunci,
+    // peramban dapat mengganti editingId untuk menimpa aset lain, atau
+    // mengisi picMismatch agar saveAssetConfirmed() melewati pemeriksaan
+    // SIMAS.
+    #[Locked]
     public ?int $editingId = null;
     public $assetOpdId = '';
     public $assetPjUserId = '';
@@ -65,9 +76,11 @@ class Table extends Component
      *
      * @var array{tercatat: string, simas: string, unit_kerja: string}|null
      */
+    #[Locked]
     public ?array $picMismatch = null;
 
     /** SIMAS was unreachable; assignment may proceed unverified once confirmed. */
+    #[Locked]
     public ?string $picSimasError = null;
 
     public function updatedSearch() { $this->resetPage(); }
@@ -252,6 +265,9 @@ class Table extends Component
         $this->resetModal();
     }
 
+    // Sudo: aksi destruktif wajib re-autentikasi (AGENTS.md §6, audit
+    // keamanan 15 Oktober 2026 S6).
+    #[RequiresSudo(reason: 'menghapus aset')]
     public function delete($id)
     {
         Gate::authorize('registry.asset.manage');

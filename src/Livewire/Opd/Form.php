@@ -4,6 +4,7 @@ namespace Nawasara\Registry\Livewire\Opd;
 
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Nawasara\Registry\Models\Opd;
 use Nawasara\Ui\Livewire\Concerns\HasBrowserToast;
@@ -12,6 +13,10 @@ class Form extends Component
 {
     use HasBrowserToast;
 
+    // #[Locked]: diisi mount dari rute. Tanpa kunci, peramban dapat
+    // mengganti id lalu save() menimpa OPD lain lewat updateOrCreate (audit
+    // keamanan 15 Oktober 2026).
+    #[Locked]
     public ?int $opdId = null;
 
     public string $code = '';

@@ -8,6 +8,8 @@ use Livewire\WithPagination;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
+use Nawasara\AuthPrimitives\Attributes\RequiresSudo;
+use Nawasara\AuthPrimitives\Traits\WithSudo;
 use Nawasara\Registry\Models\Opd;
 use Nawasara\Ui\Livewire\Concerns\HasBrowserToast;
 use Nawasara\Ui\Livewire\Concerns\HasExport;
@@ -17,6 +19,7 @@ class Table extends Component
     use HasBrowserToast;
     use HasExport;
     use WithPagination;
+    use WithSudo;
 
     // #[Url] so the command palette can deep-link ?search=<term> and prefill.
     #[Url(except: '')]
@@ -43,6 +46,9 @@ class Table extends Component
         // refresh computed
     }
 
+    // Sudo: menghapus OPD memutus aset, unit, dan keanggotaan yang
+    // merujuknya (AGENTS.md §6, audit keamanan 15 Oktober 2026 S6).
+    #[RequiresSudo(reason: 'menghapus OPD')]
     public function delete($id)
     {
         Gate::authorize('registry.opd.manage');

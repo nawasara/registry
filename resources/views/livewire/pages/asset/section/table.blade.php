@@ -174,10 +174,16 @@
         <form wire:submit="saveAsset" id="registry-asset-form-el" class="space-y-4">
             {{-- OPD + Penanggung Jawab + pencarian NIP, satu komponen bersama.
                  Sebelumnya, OPD tanpa anggota membuat admin buntu di sini. --}}
-            <livewire:nawasara-registry.pic-picker
-                :opd-id="$assetOpdId ?: null"
-                :pj-user-id="$assetPjUserId ?: null"
-                :key="'pic-picker-'.($editingId ?? 'new')" />
+            {{-- @can: PicPicker kini menolak mount tanpa registry.asset.manage
+                 (audit keamanan 15 Oktober 2026, S4). Modal ini ikut
+                 dirender untuk pemegang izin view saja, jadi tanpa @can
+                 seluruh halaman Aset akan 403 bagi mereka. --}}
+            @can('registry.asset.manage')
+                <livewire:nawasara-registry.pic-picker
+                    :opd-id="$assetOpdId ?: null"
+                    :pj-user-id="$assetPjUserId ?: null"
+                    :key="'pic-picker-'.($editingId ?? 'new')" />
+            @endcan
 
             @if ($picMismatch)
                 {{-- Ditahan, bukan diperbaiki sendiri: yang dipertaruhkan

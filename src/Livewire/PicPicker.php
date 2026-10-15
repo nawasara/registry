@@ -2,6 +2,11 @@
 
 namespace Nawasara\Registry\Livewire;
 
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Nawasara\Registry\Exceptions\SimasHebatException;
@@ -35,6 +40,16 @@ use Nawasara\Keycloak\Support\KeycloakUserProvisioner;
  * through PicAssignmentService when the host saves, because every screen ends
  * at the same Asset row and a check living in Blade would be reached around by
  * seeders, sync jobs and any package that has not heard of the rule.
+ *
+ * Audit keamanan 15 Oktober 2026, temuan S4: komponen ini membuat OPD, unit,
+ * dan akun user, tetapi tidak pernah memeriksa izin, dan hasil SIMAS (`$found`)
+ * ikut bolak-balik ke peramban sehingga dapat dipalsukan. Sekarang:
+ *   - setiap aksi digerbang `registry.asset.manage` (satu-satunya pemakainya
+ *     adalah formulir Aset, yang memakai izin yang sama);
+ *   - hasil pencarian disimpan di cache server, kliennya hanya memegang token
+ *     acak yang #[Locked];
+ *   - lookup() dibatasi per user, karena tanpa itu ia menjadi oracle data ASN
+ *     berdasarkan NIP, dan firewall SIMAS memblokir IP kita bila dibanjiri.
  */
 class PicPicker extends Component
 {
@@ -45,8 +60,27 @@ class PicPicker extends Component
     /** NIP typed into the lookup box. */
     public string $nip = '';
 
-    /** Result of the last lookup, or null when nothing has been looked up. */
-    public ?array $found = null;
+    /**
+     * Kunci cache hasil pencarian terakhir, kosong bila belum mencari.
+     *
+     * Hasil SIMAS sendiri TIDAK lagi menjadi properti publik: properti publik
+     * ikut ke peramban dan kembali lagi, jadi nama, NIP, dan OPD yang
+     * "dikenali" dapat diganti sebelum saveCreate() membuat OPD dan akun dari
+     * isinya (audit keamanan 15 Oktober 2026, S4).
+     */
+    #[Locked]
+    public string $lookupToken = '';
+
+    /** Batas pencarian NIP per user per menit. */
+    public const LOOKUP_PER_MINUTE = 5;
+
+    /** Umur hasil pencarian di cache, dalam detik. */
+    public const LOOKUP_TTL = 1800;
+
+    /** Memo per permintaan untuk found(). */
+    protected ?array $foundMemo = null;
+
+    protected bool $foundLoaded = false;
 
     public string $lookupError = '';
 
@@ -67,6 +101,7 @@ class PicPicker extends Component
      * telanjang yang salah ketik tidak menghasilkan galat apa pun, cabangnya
      * hanya diam tidak pernah jalan.
      */
+    #[Locked]
     public string $foundState = '';
 
     public bool $searching = false;
@@ -107,6 +142,8 @@ class PicPicker extends Component
 
     public function mount(?int $opdId = null, ?int $pjUserId = null): void
     {
+        $this->authorizeManage();
+
         $this->opdId = $opdId;
         $this->pjUserId = $pjUserId;
     }
@@ -139,8 +176,98 @@ class PicPicker extends Component
         return $candidates;
     }
 
+    /**
+     * Gerbang tunggal untuk mount dan setiap aksi. Dipanggil di tiap method,
+     * bukan cukup di mount: Livewire menjalankan aksi tanpa mengulang mount.
+     */
+    protected function authorizeManage(): void
+    {
+        Gate::authorize('registry.asset.manage');
+    }
+
+    /**
+     * Hasil pencarian terakhir, dibaca dari cache server.
+     *
+     * Kuncinya memuat id user, jadi token yang bocor ke user lain tidak
+     * membuka hasil milik orang lain.
+     *
+     * Sengaja protected: method publik di komponen Livewire dapat dipanggil
+     * peramban sebagai aksi, dan nilai kembaliannya ikut terkirim.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function found(): ?array
+    {
+        if ($this->foundLoaded) {
+            return $this->foundMemo;
+        }
+
+        $this->foundLoaded = true;
+        $this->foundMemo = null;
+
+        if ($this->lookupToken === '') {
+            return null;
+        }
+
+        $payload = Cache::get($this->cacheKey($this->lookupToken));
+
+        if (! is_array($payload)) {
+            return null;
+        }
+
+        // Model OPD disimpan sebagai id lalu dimuat ulang, supaya yang dipakai
+        // selalu baris terkini, bukan salinan basi di cache.
+        $payload['opd'] = isset($payload['opd_id']) ? Opd::find($payload['opd_id']) : null;
+
+        return $this->foundMemo = $payload;
+    }
+
+    /** @param  array<string, mixed>|null  $found */
+    protected function storeFound(?array $found): void
+    {
+        if ($this->lookupToken !== '') {
+            Cache::forget($this->cacheKey($this->lookupToken));
+        }
+
+        $this->foundLoaded = true;
+        $this->foundMemo = $found;
+
+        if ($found === null) {
+            $this->lookupToken = '';
+
+            return;
+        }
+
+        $this->lookupToken = Str::random(40);
+
+        $payload = $found;
+        $payload['opd_id'] = ($found['opd'] ?? null)?->id;
+        unset($payload['opd']);
+
+        Cache::put($this->cacheKey($this->lookupToken), $payload, self::LOOKUP_TTL);
+    }
+
+    /** @param  array<string, mixed>  $changes */
+    protected function updateFound(array $changes): void
+    {
+        $found = $this->found();
+
+        if ($found === null) {
+            return;
+        }
+
+        $this->storeFound(array_merge($found, $changes));
+    }
+
+    protected function cacheKey(string $token): string
+    {
+        return 'registry:pic-picker:'.auth()->id().':'.$token;
+    }
+
     public function updatedOpdId(): void
     {
+        $this->authorizeManage();
+
         // The previous pick belongs to the previous OPD.
         $this->pjUserId = null;
         $this->emitSelection();
@@ -148,6 +275,8 @@ class PicPicker extends Component
 
     public function updatedPjUserId(): void
     {
+        $this->authorizeManage();
+
         $this->emitSelection();
     }
 
@@ -160,7 +289,9 @@ class PicPicker extends Component
      */
     public function lookup(): void
     {
-        $this->found = null;
+        $this->authorizeManage();
+
+        $this->storeFound(null);
         $this->foundState = '';
         $this->lookupError = '';
 
@@ -172,10 +303,36 @@ class PicPicker extends Component
             return;
         }
 
+        // Dibatasi per user, dihitung SETELAH format NIP sah supaya salah
+        // ketik tidak menghabiskan jatah. Tanpa batas, pemegang izin dapat
+        // menyisir NIP dan menarik data ASN dari SIMAS (audit keamanan
+        // 15 Oktober 2026, S4).
+        $limiterKey = 'registry-pic-lookup:'.auth()->id();
+
+        if (RateLimiter::tooManyAttempts($limiterKey, self::LOOKUP_PER_MINUTE)) {
+            $this->lookupError = sprintf(
+                'Terlalu banyak pencarian. Coba lagi dalam %d detik.',
+                RateLimiter::availableIn($limiterKey),
+            );
+
+            return;
+        }
+
+        RateLimiter::hit($limiterKey, 60);
+
         try {
-            $this->found = app(PicAssignmentService::class)->lookup($nip);
-            // Tanpa `create: true`: pencarian tidak boleh menulis apa pun.
-            $this->foundState = $this->resolveAccount($nip)
+            $found = app(PicAssignmentService::class)->lookup($nip);
+
+            // NIP ikut disimpan di server. Kolom `nip` di layar tetap dapat
+            // diubah setelah mencari, dan selectFound() dulu membaca kolom
+            // itu, sehingga akun dapat dibuat untuk NIP lain dengan nama
+            // milik NIP yang dicari.
+            $found['nip'] = $nip;
+            $this->storeFound($found);
+
+            // Pencarian tidak boleh menulis apa pun: accountExists() hanya
+            // membaca, tidak memprovisi akun dari direktori Keycloak.
+            $this->foundState = $this->accountExists($nip)
                 ? self::ACCOUNT_LINKED
                 : self::ACCOUNT_WILL_CREATE;
         } catch (SimasHebatException $e) {
@@ -203,8 +360,9 @@ class PicPicker extends Component
      */
     public function getUnitMissingProperty(): bool
     {
-        $opd = $this->found['opd'] ?? null;
-        $sub = trim((string) ($this->found['sub_unit'] ?? ''));
+        $found = $this->found();
+        $opd = $found['opd'] ?? null;
+        $sub = trim((string) ($found['sub_unit'] ?? ''));
 
         if (! $opd || $sub === '') {
             return false;
@@ -251,7 +409,11 @@ class PicPicker extends Component
      */
     public function review(): void
     {
-        if (! $this->found) {
+        $this->authorizeManage();
+
+        $found = $this->found();
+
+        if (! $found) {
             return;
         }
 
@@ -259,8 +421,8 @@ class PicPicker extends Component
         $this->createdNotice = '';
         $this->creatingOpd = true;
 
-        $unitKerja = trim((string) ($this->found['unit_kerja'] ?? ''));
-        $opd = $this->found['opd'] ?? null;
+        $unitKerja = trim((string) ($found['unit_kerja'] ?? ''));
+        $opd = $found['opd'] ?? null;
 
         if ($opd) {
             // Recognised. The boxes show what was matched so the admin can see
@@ -270,7 +432,7 @@ class PicPicker extends Component
             $this->newOpdCode = '';
             $this->newOpdParentId = null;
 
-            $sub = trim((string) ($this->found['sub_unit'] ?? ''));
+            $sub = trim((string) ($found['sub_unit'] ?? ''));
             $this->newUnitSimasName = $sub;
             $this->newUnitName = $this->existingUnitName($opd, $sub) ?: $sub;
 
@@ -350,7 +512,7 @@ class PicPicker extends Component
     {
         $nama = trim($this->newOpdSimasName);
 
-        if ($nama === '' || ($this->found['opd'] ?? null)) {
+        if ($nama === '' || ($this->found()['opd'] ?? null)) {
             return false;
         }
 
@@ -369,13 +531,17 @@ class PicPicker extends Component
      */
     public function forceCreateOpd(): void
     {
-        if (! $this->found) {
+        $this->authorizeManage();
+
+        $found = $this->found();
+
+        if (! $found) {
             return;
         }
 
-        $unitKerja = trim((string) ($this->found['unit_kerja'] ?? ''));
+        $unitKerja = trim((string) ($found['unit_kerja'] ?? ''));
 
-        $this->found['opd'] = null;
+        $this->updateFound(['opd' => null]);
         $this->newOpdSimasName = $unitKerja;
         $this->newOpdName = $unitKerja;
         $this->newOpdCode = $this->suggestCode($unitKerja);
@@ -410,14 +576,18 @@ class PicPicker extends Component
      */
     public function saveCreate(): void
     {
-        if (! $this->found) {
+        $this->authorizeManage();
+
+        $found = $this->found();
+
+        if (! $found) {
             return;
         }
 
         $this->createError = '';
 
         $svc = app(PicAssignmentService::class);
-        $opd = $this->found['opd'] ?? null;
+        $opd = $found['opd'] ?? null;
 
         try {
             if (! $opd) {
@@ -437,7 +607,7 @@ class PicPicker extends Component
                 }
 
                 $opd = $svc->createOpdFromSimas(
-                    simasData: $this->found,
+                    simasData: $found,
                     code: $code,
                     parentId: $this->newOpdParentId,
                     name: $this->newOpdName,
@@ -448,7 +618,7 @@ class PicPicker extends Component
             if (trim($this->newUnitSimasName) !== '') {
                 $svc->createUnitFromSimas(
                     opd: $opd,
-                    simasData: $this->found,
+                    simasData: $found,
                     subUnit: trim($this->newUnitSimasName),
                     name: $this->newUnitName,
                 );
@@ -461,8 +631,10 @@ class PicPicker extends Component
 
         // The OPD now exists, so re-matching finds it and the picker can carry
         // on as though it had been registered all along.
-        $this->found['opd'] = $opd;
-        $this->found['sub_unit'] = trim($this->newUnitSimasName) ?: ($this->found['sub_unit'] ?? null);
+        $this->updateFound([
+            'opd' => $opd,
+            'sub_unit' => trim($this->newUnitSimasName) ?: ($found['sub_unit'] ?? null),
+        ]);
 
         $this->creatingOpd = false;
 
@@ -505,13 +677,20 @@ class PicPicker extends Component
      */
     public function selectFound(): void
     {
-        if (! $this->found) {
+        $this->authorizeManage();
+
+        $found = $this->found();
+
+        if (! $found) {
             return;
         }
 
         // `create: true` — akunnya dibuat di sini bila belum ada. Lihat
         // resolveAccount() untuk alasan mengapa ini tidak melahirkan akun ganda.
-        $user = $this->resolveAccount(trim($this->nip), create: true);
+        //
+        // NIP diambil dari hasil pencarian di server, BUKAN dari kolom `nip`
+        // yang dapat diubah peramban setelah mencari.
+        $user = $this->resolveAccount((string) ($found['nip'] ?? ''), $found, create: true);
 
         if (! $user) {
             $this->lookupError = 'Akun untuk pegawai ini tidak dapat dibuat.';
@@ -522,8 +701,8 @@ class PicPicker extends Component
         // The OPD SIMAS recognised, when it recognised one. An unknown OPD
         // leaves this alone: creating it is its own step, and it needs the
         // reply as its basis (see PicAssignmentService::createOpdFromSimas).
-        if ($this->found['opd'] ?? null) {
-            $this->opdId = $this->found['opd']->id;
+        if ($found['opd'] ?? null) {
+            $this->opdId = $found['opd']->id;
         }
 
         $this->pjUserId = $user->getAuthIdentifier();
@@ -542,8 +721,29 @@ class PicPicker extends Component
      * `nip` attribute exists on most but not all of them, so it is the
      * cross-check rather than the source.
      */
-    protected function resolveAccount(string $nip, bool $create = false): ?object
+    /**
+     * Apakah NIP ini sudah punya akun lokal atau ada di direktori Keycloak.
+     *
+     * Hanya membaca. Dulu lookup() memanggil resolveAccount(), yang untuk
+     * orang yang ada di Keycloak tetapi belum punya baris lokal langsung
+     * memprovisi akun, sehingga pencarian semata menulis ke tabel users
+     * (audit keamanan 15 Oktober 2026, S4).
+     */
+    protected function accountExists(string $nip): bool
     {
+        $userModel = config('auth.providers.users.model');
+
+        return $userModel::where('username', $nip)->exists()
+            || KeycloakUser::where('username', $nip)->exists();
+    }
+
+    /** @param  array<string, mixed>  $found */
+    protected function resolveAccount(string $nip, array $found, bool $create = false): ?object
+    {
+        if (! preg_match('/^\d{18}$/', $nip)) {
+            return null;
+        }
+
         $userModel = config('auth.providers.users.model');
 
         $user = $userModel::where('username', $nip)->first();
@@ -570,14 +770,14 @@ class PicPicker extends Component
         // menemukan baris ini, dan mengadopsinya.
         return app(KeycloakUserProvisioner::class)->fromExternalIdentity(
             username: $nip,
-            name: (string) ($this->found['nama_lengkap'] ?? $nip),
+            name: (string) ($found['nama_lengkap'] ?? $nip),
         );
     }
 
     public function clearLookup(): void
     {
         $this->nip = '';
-        $this->found = null;
+        $this->storeFound(null);
         $this->foundState = '';
         $this->lookupError = '';
         $this->creatingOpd = false;
@@ -609,6 +809,8 @@ class PicPicker extends Component
 
     public function render()
     {
-        return view('nawasara-registry::livewire.pic-picker');
+        return view('nawasara-registry::livewire.pic-picker', [
+            'found' => $this->found(),
+        ]);
     }
 }
