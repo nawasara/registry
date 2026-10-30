@@ -132,6 +132,14 @@ class Table extends Component
      * appointed has one home rather than four.
      */
 
+    /** Open the "Kelola PIC" modal (Section\Pics) for one asset. */
+    public function openPics($id): void
+    {
+        Gate::authorize('registry.asset.manage');
+
+        $this->dispatch('asset-pics-open', assetId: (int) $id);
+    }
+
     #[On('openCreateAsset')]
     public function openCreate()
     {

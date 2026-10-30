@@ -136,6 +136,7 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                         <x-nawasara-ui::dropdown-menu-action :id="$item->id" :items="[
                             ['type' => 'click', 'label' => 'Edit', 'action' => 'openEdit', 'param' => $item->id, 'modal' => 'registry-asset-form', 'icon' => 'lucide-pencil', 'permission' => 'registry.asset.manage'],
+                            ['type' => 'click', 'label' => 'Kelola PIC', 'action' => 'openPics', 'param' => $item->id, 'icon' => 'lucide-users', 'permission' => 'registry.asset.manage'],
                             ['type' => 'delete', 'label' => 'Hapus', 'name' => $item->identifier, 'permission' => 'registry.asset.manage'],
                         ]" />
                     </td>

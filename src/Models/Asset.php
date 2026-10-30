@@ -4,6 +4,7 @@ namespace Nawasara\Registry\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Nawasara\Keycloak\Support\KeycloakProfile;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
@@ -41,9 +42,45 @@ class Asset extends Model
             ->setDescriptionForEvent(fn (string $eventName) => "Asset {$eventName}");
     }
 
+    /**
+     * Keep the primary assignment row in step with `pj_user_id`, whoever
+     * writes it: PicAssignmentService, the "clear PIC" path of the asset
+     * form, a seeder, or another package. Hooking the model rather than the
+     * service is deliberate: a rule that lives in one caller is skipped by
+     * every other caller.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (self $asset) {
+            if (! $asset->wasRecentlyCreated && ! $asset->wasChanged('pj_user_id')) {
+                return;
+            }
+
+            AssetAssignment::query()
+                ->where('asset_id', $asset->id)
+                ->where('role', AssetAssignment::ROLE_PRIMARY)
+                ->where('user_id', '!=', $asset->pj_user_id ?? 0)
+                ->delete();
+
+            if ($asset->pj_user_id) {
+                // Promoting a backup to primary replaces their backup row.
+                AssetAssignment::updateOrCreate(
+                    ['asset_id' => $asset->id, 'user_id' => $asset->pj_user_id],
+                    ['role' => AssetAssignment::ROLE_PRIMARY, 'assigned_by' => auth()->id()],
+                );
+            }
+        });
+    }
+
     public function opd(): BelongsTo
     {
         return $this->belongsTo(Opd::class, 'opd_id');
+    }
+
+    /** Every PIC of this asset, primary and backups. */
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(AssetAssignment::class, 'asset_id');
     }
 
     /** The person responsible for this asset — a Laravel user. */

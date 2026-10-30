@@ -120,6 +120,36 @@ package that never heard of the rule.
 Status: registry uses it. cloudflare, whm and zoom still have their own copies
 and keep working; they move one at a time, each with its own tag.
 
+A page that embeds a **second** picker (the backup PICs modal next to the
+asset form) passes its own event name, or both hosts react to every choice:
+
+```blade
+<livewire:nawasara-registry.pic-picker event="backup-pic-selected" />
+```
+
+## Several PICs per asset
+
+`nawasara_registry_asset_assignments` (asset, user, role `primary` |
+`backup`). An agency site or a shared mailbox is usually looked after by two
+or three people, sometimes from another agency, and the ASN account portal
+lists every asset a civil servant looks after.
+
+- **The primary is still `pj_user_id`.** `Asset::booted` mirrors it into a
+  `primary` row on every save, whoever writes it, so all existing readers of
+  `pj_user_id` keep working. The migration copies existing `pj_user_id`
+  values into `primary` rows.
+- **Backups do not move OPD membership.** Appointing the primary moves the
+  person's membership to the asset's OPD (`PicAssignmentService`). A backup
+  can come from another agency, and moving them would silently change what
+  `ScopedToOpd` lets them see, so backups go through
+  `AssetAssignmentService::addBackup()` instead, which touches nothing else.
+- **Removing a backup is sudo-gated** ("Kelola PIC" in the asset list): it
+  revokes their access to the asset through the account portal, including
+  password-less access to an agency mailbox.
+- `AssetAssignmentService::assetsForKeycloakSub($sub, $types)` answers "what
+  does this person look after", by Keycloak `sub` (what the portal holds).
+  Active assets only.
+
 ## Installation
 
 ```bash

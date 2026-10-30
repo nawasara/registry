@@ -57,6 +57,14 @@ class PicPicker extends Component
 
     public ?int $pjUserId = null;
 
+    /**
+     * Event the selection is reported on. Default `pic-selected`; a host that
+     * embeds a SECOND picker on the same page (backup PICs next to the asset
+     * form) must give it another name, or both hosts react to every choice.
+     */
+    #[Locked]
+    public string $event = 'pic-selected';
+
     /** NIP typed into the lookup box. */
     public string $nip = '';
 
@@ -140,12 +148,13 @@ class PicPicker extends Component
     /** Konfirmasi setelah OPD/bidang tersimpan tanpa penetapan PIC. */
     public string $createdNotice = '';
 
-    public function mount(?int $opdId = null, ?int $pjUserId = null): void
+    public function mount(?int $opdId = null, ?int $pjUserId = null, string $event = 'pic-selected'): void
     {
         $this->authorizeManage();
 
         $this->opdId = $opdId;
         $this->pjUserId = $pjUserId;
+        $this->event = $event;
     }
 
     /** OPDs for the first select. */
@@ -801,7 +810,7 @@ class PicPicker extends Component
 
     protected function emitSelection(): void
     {
-        $this->dispatch('pic-selected', [
+        $this->dispatch($this->event, [
             'opd_id' => $this->opdId,
             'pj_user_id' => $this->pjUserId,
         ]);

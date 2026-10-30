@@ -5,6 +5,9 @@ return [
         'domain' => 'Domain',
         'subdomain' => 'Subdomain',
         'hosting' => 'Hosting / cPanel',
+        // Written by nawasara/whm's AccountRegistrySync for every cPanel
+        // account. Listed so it gets a label instead of the raw key.
+        'hosting_account' => 'Hosting / cPanel (WHM)',
         'email' => 'Email',
         'server' => 'Server / VM',
         'application' => 'Aplikasi',

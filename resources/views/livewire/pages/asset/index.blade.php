@@ -9,5 +9,9 @@
          just a shell. --}}
     <x-nawasara-ui::page.container>
         @livewire('nawasara-registry.asset.section.table')
+
+        {{-- Backup PICs. Its own component so the second PicPicker inside
+             reports on its own event and never fills the asset form. --}}
+        @livewire('nawasara-registry.asset.section.pics')
     </x-nawasara-ui::page.container>
 </div>
