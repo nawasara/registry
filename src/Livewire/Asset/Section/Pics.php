@@ -84,6 +84,7 @@ class Pics extends Component
         $this->pickedUserId = null;
         $this->dispatch('pic-picker-reset');
         $this->dispatch('toast', type: 'success', message: 'PIC cadangan ditambahkan.');
+        $this->dispatch('asset-pics-changed');
         unset($this->asset);
     }
 
@@ -95,6 +96,7 @@ class Pics extends Component
         app(AssetAssignmentService::class)->removeBackup(Asset::findOrFail($this->assetId), $userId);
 
         $this->dispatch('toast', type: 'success', message: 'PIC cadangan dicabut.');
+        $this->dispatch('asset-pics-changed');
         unset($this->asset);
     }
 

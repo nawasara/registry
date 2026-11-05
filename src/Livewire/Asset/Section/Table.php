@@ -93,7 +93,7 @@ class Table extends Component
     public function items()
     {
         $q = Asset::query()
-            ->with(['opd', 'penanggungJawab'])
+            ->with(['opd', 'penanggungJawab', 'backupAssignments.user'])
             ->search($this->search)
             ->byType($this->typeFilter)
             ->byStatus($this->statusFilter)
@@ -138,6 +138,13 @@ class Table extends Component
         Gate::authorize('registry.asset.manage');
 
         $this->dispatch('asset-pics-open', assetId: (int) $id);
+    }
+
+    /** Backup PICs are edited in Section\Pics; redraw the column after. */
+    #[On('asset-pics-changed')]
+    public function refreshPics(): void
+    {
+        unset($this->items);
     }
 
     #[On('openCreateAsset')]

@@ -83,6 +83,16 @@ class Asset extends Model
         return $this->hasMany(AssetAssignment::class, 'asset_id');
     }
 
+    /**
+     * Backup PICs only. The primary lives in `pj_user_id`, so a list that
+     * reads that column alone shows "-" for an asset whose only PIC is a
+     * backup.
+     */
+    public function backupAssignments(): HasMany
+    {
+        return $this->assignments()->where('role', AssetAssignment::ROLE_BACKUP);
+    }
+
     /** The person responsible for this asset — a Laravel user. */
     public function penanggungJawab(): BelongsTo
     {

@@ -114,7 +114,14 @@
                             @if ($pj->whatsapp)
                                 <div class="text-xs text-gray-500 dark:text-neutral-400">{{ $pj->whatsapp }}</div>
                             @endif
-                        @else
+                        @endif
+                        @foreach ($item->backupAssignments as $backup)
+                            <div @class(['flex items-center gap-1.5', 'mt-1.5' => $item->pj_user_id || ! $loop->first])>
+                                <span class="text-gray-800 dark:text-neutral-200">{{ $backup->user?->name ?? 'Pengguna #'.$backup->user_id }}</span>
+                                <x-nawasara-ui::badge color="neutral">Cadangan</x-nawasara-ui::badge>
+                            </div>
+                        @endforeach
+                        @if (! $item->pj_user_id && $item->backupAssignments->isEmpty())
                             <span class="text-gray-500 dark:text-neutral-400">-</span>
                         @endif
                     </td>
