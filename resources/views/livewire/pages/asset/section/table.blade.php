@@ -77,7 +77,7 @@
 
     <x-nawasara-ui::table
         stickyLast
-        :headers="['#', 'Identifier', 'Tipe', 'OPD', 'Penanggung Jawab', 'Status', 'Dibuat', '']">
+        :headers="['#', 'Identifier', 'Tipe', 'OPD', 'Penanggung Jawab', 'Dibuat', '']">
         <x-slot:table>
             @forelse ($this->items as $item)
                 <tr wire:key="asset-{{ $item->id }}">
@@ -92,6 +92,17 @@
                                     NEW
                                 </span>
                             @endif
+                        </div>
+                        {{-- Status di bawah nama, bukan kolom sendiri: terlihat tanpa menggulir ke kanan. --}}
+                        @php
+                            $assetStatusColor = match($item->status) {
+                                'active' => 'success',
+                                'pending' => 'warning',
+                                default => 'neutral',
+                            };
+                        @endphp
+                        <div class="mt-1">
+                            <x-nawasara-ui::badge :color="$assetStatusColor">{{ $item->status_label }}</x-nawasara-ui::badge>
                         </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
@@ -125,32 +136,20 @@
                             <span class="text-gray-500 dark:text-neutral-400">-</span>
                         @endif
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm">
-                        @php
-                            $assetStatusColor = match($item->status) {
-                                'active' => 'success',
-                                'pending' => 'warning',
-                                default => 'neutral',
-                            };
-                        @endphp
-                        <x-nawasara-ui::badge :color="$assetStatusColor">
-                            {{ $item->status_label }}
-                        </x-nawasara-ui::badge>
-                    </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-neutral-400">
                         {{ $item->created_at->format('d M Y') }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                         <x-nawasara-ui::dropdown-menu-action :id="$item->id" :items="[
                             ['type' => 'click', 'label' => 'Edit', 'action' => 'openEdit', 'param' => $item->id, 'modal' => 'registry-asset-form', 'icon' => 'lucide-pencil', 'permission' => 'registry.asset.manage'],
-                            ['type' => 'click', 'label' => 'Kelola PIC', 'action' => 'openPics', 'param' => $item->id, 'icon' => 'lucide-users', 'permission' => 'registry.asset.manage'],
+                            ['type' => 'click', 'label' => 'OPD & PIC', 'action' => 'openPics', 'param' => $item->id, 'icon' => 'lucide-users', 'permission' => 'registry.asset.manage'],
                             ['type' => 'delete', 'label' => 'Hapus', 'name' => $item->identifier, 'permission' => 'registry.asset.manage'],
                         ]" />
                     </td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="8">
+                    <td colspan="7">
                         @if ($search || ! empty($typeFilter) || ! empty($statusFilter) || ! empty($opdFilter) || $onlyDiscovered)
                             <x-nawasara-ui::empty-state
                                 icon="lucide-search-x"
@@ -180,62 +179,10 @@
         {{-- id berbeda dari modalnya. Keduanya sempat sama, dan id ganda di
              satu halaman membuat elemen yang dirujuk menjadi tidak pasti. --}}
         <form wire:submit="saveAsset" id="registry-asset-form-el" class="space-y-4">
-            {{-- OPD + Penanggung Jawab + pencarian NIP, satu komponen bersama.
-                 Sebelumnya, OPD tanpa anggota membuat admin buntu di sini. --}}
-            {{-- @can: PicPicker kini menolak mount tanpa registry.asset.manage
-                 (audit keamanan 15 Oktober 2026, S4). Modal ini ikut
-                 dirender untuk pemegang izin view saja, jadi tanpa @can
-                 seluruh halaman Aset akan 403 bagi mereka. --}}
-            @can('registry.asset.manage')
-                <livewire:nawasara-registry.pic-picker
-                    :opd-id="$assetOpdId ?: null"
-                    :pj-user-id="$assetPjUserId ?: null"
-                    :key="'pic-picker-'.($editingId ?? 'new')" />
-            @endcan
-
-            @if ($picMismatch)
-                {{-- Ditahan, bukan diperbaiki sendiri: yang dipertaruhkan
-                     adalah siapa boleh melihat data OPD mana. --}}
-                <div class="rounded-lg border border-amber-300 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/30 p-3 space-y-2">
-                    <p class="text-sm font-medium text-amber-800 dark:text-amber-200">
-                        OPD orang ini berbeda menurut SIMAS Hebat
-                    </p>
-
-                    <dl class="text-xs space-y-1">
-                        <div class="flex gap-2">
-                            <dt class="text-neutral-600 dark:text-neutral-400 w-36 shrink-0">Tercatat di Nawasara</dt>
-                            <dd class="text-neutral-800 dark:text-neutral-100">{{ $picMismatch['tercatat'] }}</dd>
-                        </div>
-                        <div class="flex gap-2">
-                            <dt class="text-neutral-600 dark:text-neutral-400 w-36 shrink-0">Menurut SIMAS Hebat</dt>
-                            <dd class="text-neutral-800 dark:text-neutral-100">{{ $picMismatch['simas'] }}</dd>
-                        </div>
-                    </dl>
-
-                    <p class="text-xs text-neutral-600 dark:text-neutral-400">
-                        Kalau orang ini memang sudah pindah, lanjutkan untuk memindahkan
-                        keanggotaannya. Perpindahan dicatat di log audit.
-                    </p>
-
-                    <x-nawasara-ui::button color="warning" wire:click="saveAssetConfirmed">
-                        Pindahkan dan simpan
-                    </x-nawasara-ui::button>
-                </div>
-            @endif
-
-            @if ($picSimasError)
-                <div class="rounded-lg border border-gray-300 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-800 p-3 space-y-2">
-                    <p class="text-sm text-neutral-800 dark:text-neutral-100">{{ $picSimasError }}</p>
-                    <p class="text-xs text-neutral-600 dark:text-neutral-400">
-                        Penetapan tetap dapat dilanjutkan, tetapi data kepegawaiannya
-                        tidak diperbarui dan penetapan ini ditandai belum terverifikasi.
-                    </p>
-                    <x-nawasara-ui::button color="neutral" wire:click="saveAssetConfirmed">
-                        Lanjutkan tanpa verifikasi
-                    </x-nawasara-ui::button>
-                </div>
-            @endif
-
+            {{-- OPD dan PIC tidak diatur di sini, melainkan lewat menu "OPD & PIC"
+                 pada baris aset: satu tempat untuk semua urusan PIC, termasuk
+                 pemeriksaan SIMAS Hebat. Aset baru langsung dibukakan modal itu
+                 setelah disimpan. --}}
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <x-nawasara-ui::form.label value="Tipe Aset" />

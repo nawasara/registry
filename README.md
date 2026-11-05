@@ -143,9 +143,34 @@ lists every asset a civil servant looks after.
   can come from another agency, and moving them would silently change what
   `ScopedToOpd` lets them see, so backups go through
   `AssetAssignmentService::addBackup()` instead, which touches nothing else.
-- **Removing a backup is sudo-gated** ("Kelola PIC" in the asset list): it
-  revokes their access to the asset through the account portal, including
-  password-less access to an agency mailbox.
+- **Removing a PIC is sudo-gated** (primary or backup): it revokes their
+  access to the asset through the account portal, including password-less
+  access to an agency mailbox.
+
+### One place for OPD and every PIC
+
+OPD, the primary PIC and backup PICs are all changed in the **OPD & PIC**
+modal (`Section\Pics`), opened from the asset row menu. The asset form edits
+only the asset itself: type, identifier, status, notes, ticket.
+
+This used to be split: the primary was picked in the asset form, backups in
+a separate "Kelola PIC" modal. Staff opened Edit, found a PIC field that
+worked, and concluded the other menu was redundant or broken. Do not put a
+PIC field back into the asset form.
+
+- The form's save payload deliberately omits `opd_id` and `pj_user_id`, so
+  editing a note can never wipe them.
+- A newly created asset opens the OPD & PIC modal straight away.
+- The SIMAS Hebat mismatch / unreachable confirmations moved with the primary
+  picker; `picMismatch` and `picSimasError` stay `#[Locked]`.
+- Only one picker is mounted at a time: two OPD + NIP pickers in one modal
+  was a wall of fields, and both answered the same reset event.
+- Other packages reuse the modal: `nawasara/proxmox` embeds
+  `nawasara-registry.asset.section.pics` on its VM page and dispatches
+  `asset-pics-open`. After any change the modal dispatches
+  `asset-pics-changed` so lists showing PICs can refresh.
+- The asset list shows backups under the primary, labelled Cadangan. An asset
+  whose only PIC is a backup used to show "-".
 - `AssetAssignmentService::assetsForKeycloakSub($sub, $types)` answers "what
   does this person look after", by Keycloak `sub` (what the portal holds).
   Active assets only.
