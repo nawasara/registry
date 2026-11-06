@@ -18,7 +18,7 @@
                     <div class="flex items-center justify-between">
                         <p class="text-sm font-medium text-neutral-800 dark:text-neutral-100">OPD &amp; PIC utama</p>
                         @if ($mode !== 'primary')
-                            <x-nawasara-ui::button color="neutral" size="sm" wire:click="startPrimary">
+                            <x-nawasara-ui::button :color="$primary ? 'info' : 'primary'" size="sm" wire:click="startPrimary">
                                 {{ $primary ? 'Ganti' : 'Tetapkan' }}
                             </x-nawasara-ui::button>
                         @endif
@@ -36,8 +36,17 @@
                                 wire:confirm="Lepas {{ $primary->user?->name ?? 'orang ini' }} sebagai PIC utama? Aksesnya ke aset ini lewat Akun ASN ikut berakhir.">
                                 Lepas
                             </x-nawasara-ui::button>
+                        @elseif ($mode === 'primary')
+                            <p class="text-sm text-neutral-500 dark:text-neutral-400">Belum ada PIC utama. Pilih OPD dan orangnya di bawah.</p>
                         @else
-                            <p class="text-sm text-neutral-500 dark:text-neutral-400">Belum ada PIC utama.</p>
+                            {{-- Kotak berbingkai ini tampak seperti kolom isian, jadi orang
+                                 mengkliknya. Dulu hanya teks dan klik itu tidak berbuat apa-apa
+                                 — terasa macet. Kini kotaknya sendiri membuka picker. --}}
+                            <button type="button" wire:click="startPrimary"
+                                class="-mx-4 -my-3 flex w-[calc(100%+2rem)] items-center justify-between gap-3 rounded-lg px-4 py-3 text-left text-sm text-neutral-500 hover:bg-neutral-50 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-100">
+                                <span>Belum ada PIC utama — klik untuk menetapkan</span>
+                                <x-lucide-plus class="size-4 shrink-0" />
+                            </button>
                         @endif
                     </div>
 
@@ -102,7 +111,7 @@
                     <div class="flex items-center justify-between">
                         <p class="text-sm font-medium text-neutral-800 dark:text-neutral-100">PIC cadangan</p>
                         @if ($mode !== 'backup')
-                            <x-nawasara-ui::button color="neutral" size="sm" wire:click="startBackup">Tambah</x-nawasara-ui::button>
+                            <x-nawasara-ui::button color="primary" size="sm" wire:click="startBackup">Tambah</x-nawasara-ui::button>
                         @endif
                     </div>
 
@@ -122,7 +131,14 @@
                                 </x-nawasara-ui::button>
                             </div>
                         @empty
-                            <p class="px-4 py-4 text-center text-sm text-neutral-500 dark:text-neutral-400">Belum ada PIC cadangan.</p>
+                            @if ($mode === 'backup')
+                                <p class="px-4 py-4 text-center text-sm text-neutral-500 dark:text-neutral-400">Belum ada PIC cadangan.</p>
+                            @else
+                                <button type="button" wire:click="startBackup"
+                                    class="flex w-full items-center justify-center gap-2 px-4 py-4 text-sm text-neutral-500 hover:bg-neutral-50 hover:text-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700/40 dark:hover:text-neutral-100">
+                                    <x-lucide-plus class="size-4" /> Belum ada PIC cadangan — klik untuk menambah
+                                </button>
+                            @endif
                         @endforelse
                     </div>
 
