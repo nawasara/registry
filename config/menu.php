@@ -31,6 +31,13 @@ return [
                 'permission' => 'registry.membership.manage',
                 'navigate' => true,
             ],
+            [
+                'label' => 'Pengajuan Petugas',
+                'icon' => 'lucide-user-plus',
+                'url' => url($prefix.'/membership-requests'),
+                'permission' => 'registry.membership.manage',
+                'navigate' => true,
+            ],
         ],
     ],
 ];

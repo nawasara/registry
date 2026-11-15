@@ -5,6 +5,7 @@ use Nawasara\Registry\Livewire\Opd\Index as OpdIndex;
 use Nawasara\Registry\Livewire\Opd\Form as OpdForm;
 use Nawasara\Registry\Livewire\Asset\Index as AssetIndex;
 use Nawasara\Registry\Livewire\Membership\Index as MembershipIndex;
+use Nawasara\Registry\Livewire\MembershipRequest\Index as MembershipRequestIndex;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 
 Route::middleware(['web', 'auth'])->prefix('nawasara-registry')->group(function () {
@@ -27,4 +28,9 @@ Route::middleware(['web', 'auth'])->prefix('nawasara-registry')->group(function 
     Route::get('membership', MembershipIndex::class)
         ->middleware(PermissionMiddleware::using('registry.membership.manage'))
         ->name('nawasara-registry.membership.index');
+
+    // Pengajuan petugas dari admin OPD (panel GO) — disetujui di sini.
+    Route::get('membership-requests', MembershipRequestIndex::class)
+        ->middleware(PermissionMiddleware::using('registry.membership.manage'))
+        ->name('nawasara-registry.membership-request.index');
 });

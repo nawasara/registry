@@ -41,4 +41,17 @@ return [
         // How long employment data may sit before the UI calls it stale.
         'stale_after_days' => 180,
     ],
+
+    /*
+    | Peran yang boleh diajukan admin OPD lewat "Ajukan Petugas"
+    | (MembershipRequestService). Disetujui admin Registry; persetujuan
+    | memberi peran ini sekaligus menautkan pegawai ke OPD pengaju.
+    |
+    | Daftar tertutup: peran di luar daftar ditolak, supaya pengajuan tidak
+    | menjadi jalan memberi peran apa pun (mis. developer).
+    */
+    'membership_request_roles' => [
+        'lapor-opd-operator' => 'Petugas penanganan laporan',
+        'lapor-opd-kabid' => 'Kabid pemeriksa',
+    ],
 ];
