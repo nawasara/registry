@@ -210,7 +210,10 @@ class PicAssignmentService
         }
 
         $simasName = trim((string) ($simasName ?: $unitKerja));
-        $name = trim((string) ($name ?: $simasName));
+        $adminName = trim((string) $name);
+        // Nama tampilan dirapikan bila admin tidak mengoreksinya — unit_kerja
+        // SIMAS ditulis kapital semua. simas_name tetap persis sumbernya.
+        $name = $adminName !== '' ? $adminName : \Nawasara\Registry\Support\OpdName::tidy($simasName);
 
         $opd = Opd::create([
             'code' => $code,
@@ -226,7 +229,8 @@ class PicAssignmentService
                 'simas' => $this->auditableSimas($simasData),
                 // Recorded so a later reviewer can see the admin adjusted it,
                 // and compare against what the source actually said.
-                'dikoreksi_admin' => $name !== $unitKerja || $simasName !== $unitKerja,
+                // Perapian huruf otomatis (OpdName::tidy) BUKAN koreksi admin.
+                'dikoreksi_admin' => ($adminName !== '' && $adminName !== $unitKerja) || $simasName !== $unitKerja,
                 'diambil_pada' => now()->toIso8601String(),
             ])
             ->log('OPD dibuat dari SIMAS Hebat');
