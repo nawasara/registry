@@ -68,7 +68,11 @@
                                 @foreach ($d['moves'] as $move)
                                     <li>
                                         {{ $move->created_at?->timezone('Asia/Jakarta')->format('d M Y H:i') }}:
-                                        dipindah dari {{ $move->properties['dari'] ?? '-' }} ke {{ $move->properties['ke'] ?? '-' }}
+                                        @if (empty($move->properties['dari']))
+                                            menjadi anggota {{ $move->properties['ke'] ?? '-' }}
+                                        @else
+                                            dipindah dari {{ $move->properties['dari'] }} ke {{ $move->properties['ke'] ?? '-' }}
+                                        @endif
                                         ({{ ['login' => 'saat login', 'manual' => 'manual', 'pic' => 'penetapan PIC'][$move->properties['sumber'] ?? ''] ?? '-' }})
                                     </li>
                                 @endforeach
@@ -76,7 +80,7 @@
                         @endif
                     @else
                         <p class="text-neutral-600 dark:text-neutral-300">
-                            Belum menjadi anggota OPD mana pun. Keanggotaan diberikan lewat Pengajuan Petugas atau penetapan PIC, tidak dibuat otomatis dari SIMAS.
+                            Belum menjadi anggota OPD mana pun. Keanggotaan dibuat otomatis saat data diperbarui, asalkan SKPD dari SIMAS sudah dikenal Registry.
                         </p>
                     @endif
                 </section>

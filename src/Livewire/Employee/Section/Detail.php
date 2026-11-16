@@ -54,7 +54,10 @@ class Detail extends Component
                 'moves' => $membership
                     ? Activity::where('subject_type', $membership->getMorphClass())
                         ->where('subject_id', $membership->id)
-                        ->where('description', 'Keanggotaan OPD dipindah mengikuti SIMAS Hebat')
+                        ->whereIn('description', [
+                            'Keanggotaan OPD dipindah mengikuti SIMAS Hebat',
+                            'Keanggotaan OPD dibuat dari SIMAS Hebat',
+                        ])
                         ->latest('id')->limit(10)->get()
                     : collect(),
             ];

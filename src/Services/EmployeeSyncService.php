@@ -15,8 +15,9 @@ use Nawasara\Registry\Models\Unit;
  * Keeps a user's employment data and OPD membership in line with SIMAS Hebat.
  *
  * SIMAS Hebat is the official source (keputusan 16 November 2026): when it
- * says someone works at another OPD, their membership MOVES, with no approval
- * step. The move is written to the audit trail so it can be traced.
+ * says someone works at another OPD, their membership MOVES, and someone with
+ * no membership yet gets one, both with no approval step. Every change is
+ * written to the audit trail so it can be traced.
  *
  * Three callers, one rule set:
  *   - login   QueueEmployeeSyncOnLogin, at most once per interval
@@ -24,8 +25,9 @@ use Nawasara\Registry\Models\Unit;
  *   - pic     PicAssignmentService, which writes through writeEmployee()
  *
  * What this deliberately does NOT do:
- *   - create a membership for someone who has none. A membership is access to
- *     an OPD's data, and granting it goes through Pengajuan Petugas.
+ *   - grant roles. A membership alone shows nothing: what a user may do with
+ *     an OPD's data still comes from their roles (Pengajuan Petugas).
+ *   - reactivate a membership an admin deactivated.
  *   - move a membership when `skpd` matches no OPD in the registry. There is
  *     nowhere to move it to; the row is flagged instead (simas_opd_id null)
  *     so an admin can register the OPD or fill its simas_name.
@@ -143,9 +145,18 @@ class EmployeeSyncService
             $employee = $this->writeEmployee($user, $nip, $data, $opd, $unit, $source);
 
             $movedFrom = null;
+            $created = false;
             $membership = Membership::where('user_id', $user->getAuthIdentifier())->lockForUpdate()->first();
 
-            if ($opd && $membership && (int) $membership->opd_id !== (int) $opd->id) {
+            if ($opd && ! $membership) {
+                $membership = Membership::create([
+                    'user_id' => $user->getAuthIdentifier(),
+                    'opd_id' => $opd->id,
+                    'aktif' => true,
+                ]);
+                $created = true;
+                $this->logMove($membership, null, $opd, $nip, $data, $source, 'Keanggotaan OPD dibuat dari SIMAS Hebat');
+            } elseif ($opd && (int) $membership->opd_id !== (int) $opd->id) {
                 $movedFrom = Opd::find($membership->opd_id);
                 $membership->forceFill(['opd_id' => $opd->id])->save();
                 $this->logMove($membership, $movedFrom, $opd, $nip, $data, $source);
@@ -153,6 +164,8 @@ class EmployeeSyncService
 
             if (! $opd) {
                 $message = 'Data diperbarui, tetapi OPD "'.($data['skpd'] ?? $data['unit_kerja'] ?? '-').'" belum dikenal Registry. Keanggotaan OPD tidak diubah.';
+            } elseif ($created) {
+                $message = "Data diperbarui. Pegawai ini kini anggota {$opd->name} mengikuti SIMAS Hebat.";
             } elseif ($movedFrom) {
                 $message = "Data diperbarui. Keanggotaan dipindah dari {$movedFrom->name} ke {$opd->name} mengikuti SIMAS Hebat.";
             } else {
@@ -232,7 +245,7 @@ class EmployeeSyncService
      * both in the activity log and when someone asks "why can this user no
      * longer see OPD X".
      */
-    public function logMove(Membership $membership, ?Opd $from, Opd $to, string $nip, array $data, string $source): void
+    public function logMove(Membership $membership, ?Opd $from, Opd $to, string $nip, array $data, string $source, string $description = 'Keanggotaan OPD dipindah mengikuti SIMAS Hebat'): void
     {
         activity()
             ->performedOn($membership)
@@ -248,7 +261,7 @@ class EmployeeSyncService
                     'unit_kerja' => $data['unit_kerja'] ?? null,
                 ],
             ])
-            ->log('Keanggotaan OPD dipindah mengikuti SIMAS Hebat');
+            ->log($description);
     }
 
     /** Remember a lookup that did not produce data, without touching the old data. */

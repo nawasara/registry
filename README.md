@@ -156,9 +156,10 @@ which path, the assets they hold, and the history of OPD moves.
 
 Decisions that look like gaps but are not:
 
-- **No membership is created for someone who has none.** A membership is
-  access to an OPD's data. It is granted through Pengajuan Petugas or a PIC
-  appointment; SIMAS only moves an existing one.
+- **Someone with no membership gets one** as soon as their `skpd` matches an
+  OPD (decided 16 November 2026, v0.2.22). It is logged as "Keanggotaan OPD
+  dibuat dari SIMAS Hebat". Roles are NOT granted: what a user may do with the
+  OPD's data still comes from Pengajuan Petugas.
 - **An `skpd` the registry does not know moves nothing.** There is nowhere to
   move it to. The row is flagged ("OPD belum dikenal Registry"); register the
   OPD or set its `simas_name`, then refresh.

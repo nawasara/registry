@@ -6,7 +6,7 @@
  *
  * Aturan yang diuji (keputusan 16 November 2026, SIMAS sumber resmi):
  *  - pegawai mutasi: keanggotaan PINDAH tanpa persetujuan, tercatat di audit
- *  - tanpa keanggotaan: TIDAK dibuatkan (hak akses lewat Pengajuan Petugas)
+ *  - keanggotaan SELALU mengikuti SIMAS: dibuat bila belum ada (v0.2.22)
  *  - skpd tak dikenal: keanggotaan tetap, baris ditandai
  *  - NIP tak ditemukan / SIMAS galat: data lama tetap, synced_at tidak bergerak
  *  - halaman blokir: semua jalur berhenti satu jam
@@ -188,11 +188,28 @@ $simas->jawaban = $jawab('DINAS PENDIDIKAN DAN KEBUDAYAAN', 'BIDANG SMP');
 $svc->sync($u1, EmployeeSyncService::SOURCE_MANUAL);
 $cek('tidak dipindah ke Dinas Pendidikan', (int) Membership::where('user_id', 1)->value('opd_id') === $kominfo->id);
 
-echo "\n=== tanpa keanggotaan: TIDAK dibuatkan ===\n";
+echo "\n=== tanpa keanggotaan + skpd tak dikenal: tidak ada tempat ===\n";
+$simas->jawaban = $jawab('BADAN BARU YANG BELUM ADA', 'BIDANG X');
+$svc->sync($u2, EmployeeSyncService::SOURCE_LOGIN);
+$cek('keanggotaan belum dibuat', ! Membership::where('user_id', 2)->exists());
+
+echo "\n=== tanpa keanggotaan + skpd dikenal: DIBUATKAN ===\n";
 $simas->jawaban = $jawab('DINAS PENDIDIKAN', 'SD NEGERI 1 BEDOHO');
 $h = $svc->sync($u2, EmployeeSyncService::SOURCE_LOGIN);
+$m2 = Membership::firstWhere('user_id', 2);
 $cek('data pegawai terisi', Employee::where('user_id', 2)->value('simas_skpd') === 'DINAS PENDIDIKAN');
-$cek('keanggotaan tidak dibuat', ! Membership::where('user_id', 2)->exists());
+$cek('keanggotaan dibuat di Dindik, aktif', $m2 && (int) $m2->opd_id === $dindik->id && $m2->aktif);
+$cek('pesan menyebut anggota baru', str_contains($h['message'], 'kini anggota'), $h['message']);
+$logBaru = DB::table('activity_log')->where('description', 'Keanggotaan OPD dibuat dari SIMAS Hebat')->first();
+$pb = json_decode($logBaru->properties ?? '{}', true);
+$cek('audit tercatat, dari kosong', $logBaru && array_key_exists('dari', $pb) && $pb['dari'] === null && ($pb['ke'] ?? '') === $dindik->name);
+
+echo "\n=== lalu mutasi A -> B: ikut pindah ===\n";
+$simas->jawaban = $jawab('DINAS KOMUNIKASI, INFORMATIKA DAN STATISTIK', 'BIDANG APLIKASI DAN INFORMATIKA');
+$h = $svc->sync($u2, EmployeeSyncService::SOURCE_LOGIN);
+$cek('pindah ke Kominfo', (int) Membership::where('user_id', 2)->value('opd_id') === $kominfo->id);
+$cek('tetap satu baris, satu log dibuat', Membership::where('user_id', 2)->count() === 1
+    && DB::table('activity_log')->where('description', 'Keanggotaan OPD dibuat dari SIMAS Hebat')->count() === 1);
 
 echo "\n=== NIP tidak ditemukan: data lama dipertahankan ===\n";
 $sebelum = Employee::firstWhere('user_id', 1);
