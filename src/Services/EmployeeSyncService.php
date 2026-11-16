@@ -2,6 +2,7 @@
 
 namespace Nawasara\Registry\Services;
 
+use DateTimeInterface;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -42,6 +43,9 @@ class EmployeeSyncService
     public const SOURCE_MANUAL = 'manual';
 
     public const SOURCE_PIC = 'pic';
+
+    /** Copied from Keycloak after an SSO login to any app (PullSsoLoginsJob). */
+    public const SOURCE_SSO = 'sso';
 
     /** Set when SIMAS answers with its firewall page; every caller backs off. */
     public const BLOCKED_CACHE_KEY = 'nawasara-registry:simas-blocked';
@@ -135,14 +139,14 @@ class EmployeeSyncService
      *
      * @return array{status: string, employee: ?Employee, opd: ?Opd, moved_from: ?Opd, message: string}
      */
-    public function apply($user, string $nip, array $data, string $source): array
+    public function apply($user, string $nip, array $data, string $source, ?DateTimeInterface $syncedAt = null): array
     {
         $match = $this->matcher->matchSimas($data);
         $opd = $match['opd'];
         $unit = $opd && $match['sub_unit'] ? $this->findUnit($opd, $match['sub_unit']) : null;
 
-        return DB::transaction(function () use ($user, $nip, $data, $source, $opd, $unit) {
-            $employee = $this->writeEmployee($user, $nip, $data, $opd, $unit, $source);
+        return DB::transaction(function () use ($user, $nip, $data, $source, $opd, $unit, $syncedAt) {
+            $employee = $this->writeEmployee($user, $nip, $data, $opd, $unit, $source, $syncedAt);
 
             $movedFrom = null;
             $created = false;
@@ -182,7 +186,7 @@ class EmployeeSyncService
      * ⚠️ `nip` is only written when the row has none. It links the account to
      * its Keycloak identity; a wrong one is fixed at the source, not here.
      */
-    public function writeEmployee($user, ?string $nip, array $data, ?Opd $opd, ?Unit $unit, string $source): Employee
+    public function writeEmployee($user, ?string $nip, array $data, ?Opd $opd, ?Unit $unit, string $source, ?DateTimeInterface $syncedAt = null): Employee
     {
         $employee = Employee::firstOrNew(['user_id' => $user->getAuthIdentifier()]);
 
@@ -198,7 +202,7 @@ class EmployeeSyncService
             'simas_status' => 'ok',
             'simas_error' => null,
             'simas_source' => $source,
-            'simas_synced_at' => now(),
+            'simas_synced_at' => $syncedAt ?? now(),
             'simas_checked_at' => now(),
         ]);
 
@@ -262,6 +266,12 @@ class EmployeeSyncService
                 ],
             ])
             ->log($description);
+    }
+
+    /** SIMAS says this NIP does not exist; old data and membership are kept. */
+    public function recordNotFound($user, string $nip, string $source): Employee
+    {
+        return $this->recordAttempt($user, $nip, 'not_found', null, $source);
     }
 
     /** Remember a lookup that did not produce data, without touching the old data. */

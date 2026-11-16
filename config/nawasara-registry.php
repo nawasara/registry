@@ -55,6 +55,14 @@ return [
         'interval_hours' => 24,
         // Batas "Perbarui dari SIMAS" per admin per menit.
         'manual_per_minute' => 10,
+
+        // Login SSO ke aplikasi MANA PUN (Portal ASN, godash, ...) ikut
+        // memperbarui Nawasara: tiap sso_every_minutes, event LOGIN Keycloak
+        // sso_window_minutes terakhir dibaca dan atribut simas_* disalin.
+        // Tidak memanggil SIMAS; Keycloak yang sudah memanggilnya.
+        'sso_pull' => env('REGISTRY_SSO_PULL', true),
+        'sso_every_minutes' => 5,
+        'sso_window_minutes' => 15,
     ],
 
     /*

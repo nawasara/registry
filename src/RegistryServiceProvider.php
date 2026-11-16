@@ -25,6 +25,8 @@ class RegistryServiceProvider extends ServiceProvider
             Listeners\QueueEmployeeSyncOnLogin::class,
         );
 
+        $this->registerSchedule();
+
         // Scope didaftarkan sebelum routes: UI token memfilter scope yang
         // tidak ter-register, jadi lupa mendaftarkan berarti scope-nya tidak
         // bisa diberikan ke token mana pun — diam-diam.
@@ -119,6 +121,31 @@ class RegistryServiceProvider extends ServiceProvider
                 Services\SimasHebatClient::fromVault(),
                 new Services\UnitKerjaMatcher,
             );
+        });
+    }
+
+    /**
+     * Copy SIMAS data for SSO logins to ANY app, every few minutes
+     * (PullSsoLoginsJob). Via $schedule->call(), not ->command(): commands
+     * registered by packages do not reliably surface in the scheduler.
+     */
+    protected function registerSchedule(): void
+    {
+        $this->app->booted(function () {
+            if (! $this->app->runningInConsole()) {
+                return;
+            }
+            if (! config('nawasara-registry.employee_sync.sso_pull', true)) {
+                return;
+            }
+
+            $schedule = $this->app->make(\Illuminate\Console\Scheduling\Schedule::class);
+            $every = max(1, (int) config('nawasara-registry.employee_sync.sso_every_minutes', 5));
+
+            $schedule->call(fn () => Jobs\PullSsoLoginsJob::dispatch())
+                ->name('nawasara-registry:pull-sso-logins')
+                ->cron("*/{$every} * * * *")
+                ->withoutOverlapping(10);
         });
     }
 

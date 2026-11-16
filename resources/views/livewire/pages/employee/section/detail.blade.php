@@ -4,7 +4,7 @@
             @php
                 $e = $d['employee'];
                 $wib = fn ($t) => $t ? $t->copy()->timezone('Asia/Jakarta')->format('d M Y H:i').' WIB' : '-';
-                $sumber = ['login' => 'otomatis saat login', 'manual' => 'manual', 'pic' => 'saat penetapan PIC'][$e?->simas_source] ?? '-';
+                $sumber = ['login' => 'otomatis saat login', 'manual' => 'manual', 'pic' => 'saat penetapan PIC', 'sso' => 'saat login SSO'][$e?->simas_source] ?? '-';
             @endphp
 
             <div class="space-y-5 text-sm">
@@ -73,7 +73,7 @@
                                         @else
                                             dipindah dari {{ $move->properties['dari'] }} ke {{ $move->properties['ke'] ?? '-' }}
                                         @endif
-                                        ({{ ['login' => 'saat login', 'manual' => 'manual', 'pic' => 'penetapan PIC'][$move->properties['sumber'] ?? ''] ?? '-' }})
+                                        ({{ ['login' => 'saat login', 'manual' => 'manual', 'pic' => 'penetapan PIC', 'sso' => 'login SSO'][$move->properties['sumber'] ?? ''] ?? '-' }})
                                     </li>
                                 @endforeach
                             </ul>

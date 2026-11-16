@@ -60,7 +60,7 @@ $cek = function (string $label, bool $ok, string $detail = '') use (&$gagal) {
 // ---- skema: tabel induk tiruan, lalu migrasi registry yang sebenarnya ----
 Schema::create('users', function ($t) {
     $t->id(); $t->string('name'); $t->string('email')->unique();
-    $t->string('username')->nullable(); $t->timestamps();
+    $t->string('username')->nullable(); $t->string('keycloak_id')->nullable(); $t->timestamps();
 });
 Schema::create('activity_log', function ($t) {
     $t->id(); $t->string('log_name')->nullable(); $t->text('description');
@@ -291,6 +291,63 @@ $simas->jawaban = SimasHebatException::unreachable();
 $aman = true;
 try { (new SyncEmployeeFromSimasJob(1))->handle($svc); } catch (\Throwable $ex) { $aman = false; }
 $cek('galat SIMAS tidak membuat job gagal', $aman);
+
+echo "\n=== login SSO ke aplikasi LAIN: data disalin dari Keycloak ===\n";
+class KeycloakPalsu extends Nawasara\Keycloak\Services\KeycloakClient
+{
+    public array $events = [];
+    public array $users = [];
+    public array $params = [];
+    public function isConfigured(): bool { return true; }
+    public function getEvents(array $params = []): array { $this->params[] = $params; return ($params['first'] ?? 0) === 0 ? $this->events : []; }
+    public function getUser(string $id): ?array { return $this->users[$id] ?? null; }
+}
+DB::table('users')->insert([
+    ['id' => 4, 'name' => 'Warist', 'email' => 'w@x.id', 'username' => '198604082020121003', 'keycloak_id' => 'kc-warist'],
+]);
+$attrs = fn (string $skpd, string $synced, string $status = 'ok') => ['username' => '198604082020121003', 'attributes' => [
+    'simas_status' => [$status], 'simas_synced_at' => [$synced], 'simas_nama' => ['WARIST AMRU KHOIRUDDIN S.ST.'],
+    'simas_skpd' => [$skpd], 'simas_unit' => ['BIDANG APLIKASI DAN INFORMATIKA'], 'simas_jabatan' => ['Pranata Komputer'],
+    'simas_jenis_jabatan' => ['Jabatan Fungsional'], 'simas_jenis_kepegawaian' => ['PNS'],
+]];
+$kc = new KeycloakPalsu;
+$kc->events = [
+    ['type' => 'LOGIN', 'userId' => 'kc-warist', 'clientId' => 'asn-portal-production'],
+    ['type' => 'LOGIN', 'userId' => 'kc-warist', 'clientId' => 'godash'],
+    ['type' => 'LOGIN', 'userId' => 'kc-bukan-akun-nawasara', 'clientId' => 'godash'],
+];
+$kc->users['kc-warist'] = $attrs('DINAS KOMUNIKASI, INFORMATIKA DAN STATISTIK', '2026-11-16T07:23:07.992526317Z');
+$panggilSimasSebelum = $simas->panggilan;
+$imp = new Nawasara\Registry\Services\SsoLoginImporter($kc, $svc);
+$c = $imp->run(15);
+$eW = Employee::firstWhere('user_id', 4);
+$cek('event dibaca dengan type LOGIN dan dateFrom (ms)', ($kc->params[0]['type'] ?? '') === 'LOGIN' && strlen((string) ($kc->params[0]['dateFrom'] ?? '')) === 13);
+$cek('dua event satu orang = satu orang', $c['people'] === 1, json_encode($c));
+$cek('data Warist tersalin', $eW?->simas_skpd === 'DINAS KOMUNIKASI, INFORMATIKA DAN STATISTIK' && $eW?->simas_nama === 'WARIST AMRU KHOIRUDDIN S.ST.');
+$cek('sumber = sso', $eW?->simas_source === 'sso');
+$cek('waktu sinkron = waktu Keycloak (UTC)', $eW?->simas_synced_at?->format('Y-m-d H:i:s') === '2026-11-16 07:23:07', (string) $eW?->simas_synced_at);
+$cek('keanggotaan dibuat di Kominfo', (int) Membership::where('user_id', 4)->value('opd_id') === $kominfo->id);
+$cek('SIMAS TIDAK dipanggil', $simas->panggilan === $panggilSimasSebelum);
+
+$c2 = $imp->run(15);
+$cek('putaran berikutnya (jendela tumpang-tindih): dilewati', $c2['unchanged'] === 1 && $c2['applied'] === 0, json_encode($c2));
+
+$kc->users['kc-warist'] = $attrs('DINAS PENDIDIKAN', '2026-11-16T09:00:00.1Z');
+$c3 = $imp->run(15);
+$cek('mutasi lewat SSO: keanggotaan pindah', (int) Membership::where('user_id', 4)->value('opd_id') === $dindik->id && $c3['moved'] === 1, json_encode($c3));
+
+$kc->users['kc-warist'] = $attrs('DINAS PENDIDIKAN', '2026-11-16T10:00:00Z', 'not_found');
+$imp->run(15);
+$eW->refresh();
+$cek('not_found dari Keycloak: status dicatat, data lama tetap', $eW->simas_status === 'not_found' && $eW->simas_skpd === 'DINAS PENDIDIKAN');
+
+$kc->users['kc-warist'] = ['username' => '198604082020121003', 'attributes' => []];
+$c5 = $imp->run(15);
+$cek('belum ada simas_* di Keycloak: dilewati', $c5['skipped'] === 1);
+
+$kc->events = [];
+$c6 = $imp->run(15);
+$cek('tanpa login: tidak ada yang dibaca', $c6['people'] === 0);
 
 $pdo->exec('DROP DATABASE IF EXISTS db_uji_pegawai');
 echo "\n".($gagal === 0 ? 'SEMUA LULUS' : "ADA {$gagal} YANG GAGAL")."\n";

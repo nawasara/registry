@@ -1,7 +1,7 @@
 <div>
     <x-nawasara-ui::page-header
         title="Data Pegawai"
-        description="Profil kepegawaian tiap akun menurut SIMAS Hebat, sumber resmi data ASN. Diperbarui otomatis saat login, paling sering sekali sehari. Pegawai yang mutasi otomatis pindah keanggotaan OPD-nya."
+        description="Profil kepegawaian tiap akun menurut SIMAS Hebat, sumber resmi data ASN. Diperbarui otomatis setiap pegawai login SSO ke aplikasi mana pun. Keanggotaan OPD selalu mengikuti SIMAS."
         :count="$this->rows->total()" />
 
     <div class="space-y-2 mb-4">
@@ -39,7 +39,7 @@
                 @foreach ($this->rows as $row)
                     @php
                         $synced = $row->simas_synced_at ? \Illuminate\Support\Carbon::parse($row->simas_synced_at)->timezone('Asia/Jakarta') : null;
-                        $sumber = ['login' => 'saat login', 'manual' => 'manual', 'pic' => 'penetapan PIC'][$row->simas_source] ?? null;
+                        $sumber = ['login' => 'saat login', 'manual' => 'manual', 'pic' => 'penetapan PIC', 'sso' => 'login SSO'][$row->simas_source] ?? null;
                     @endphp
                     <tr wire:key="emp-{{ $row->id }}">
                         <td class="px-4 py-3 text-sm">

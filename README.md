@@ -146,6 +146,7 @@ line with SIMAS Hebat. Three callers share it:
 
 | When | How often | Source tag |
 |---|---|---|
+| SSO login to **any** app (Portal ASN, godash, ...): `PullSsoLoginsJob` reads Keycloak LOGIN events | every 5 min, 15 min window | `sso` |
 | Login to Nawasara (`Login` event, queued job) | at most once per 24 h per person | `login` |
 | "Perbarui dari SIMAS" on **Data Pegawai** | 10 per admin per minute | `manual` |
 | Appointing a PIC | each time | `pic` |
@@ -171,10 +172,16 @@ Decisions that look like gaps but are not:
 - **Not found / SIMAS down leaves the old data.** `simas_checked_at` records the
   attempt, `simas_synced_at` only moves when data actually arrived, so "last
   synced" never lies.
-- **Nawasara asks SIMAS itself instead of reading Keycloak.** Keycloak
-  (authenticator 2.4.0) stores the same data as `simas_*` user attributes, but
-  they are not in the token without extra mappers, and Nawasara accounts are
-  few enough that one lookup per person per day costs the source nothing.
+- **SSO logins elsewhere are read from Keycloak, not SIMAS.** Keycloak
+  (authenticator 2.4.0) asks SIMAS on every login and stores the reply as
+  `simas_*` user attributes. `SsoLoginImporter` reads recent LOGIN events and
+  copies those attributes for people who have a Nawasara account, so a login
+  to Portal ASN updates Nawasara with no extra SIMAS call. The 15-minute
+  window overlaps the 5-minute schedule on purpose: Keycloak fills the
+  attributes a moment after the event, and a run in between catches it next
+  time. Rows already as new as Keycloak's `simas_synced_at` are skipped
+  (compared to the second; the DB keeps whole seconds). Needs "Save events"
+  on in the realm and `view-events` on Nawasara's admin client.
 - **Throttled on purpose.** The SIMAS firewall blocks the calling IP after a
   burst, and the block is total. A block page sets a one-hour back-off for every
   path, and there is no "refresh everyone" button.
