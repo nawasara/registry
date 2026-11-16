@@ -43,6 +43,21 @@ return [
     ],
 
     /*
+    | Data kepegawaian diperbarui dari SIMAS Hebat saat login ke Nawasara
+    | (EmployeeSyncService). SIMAS adalah sumber resmi: pegawai yang mutasi
+    | otomatis pindah keanggotaan OPD-nya.
+    |
+    | interval_hours: jarak minimal antar-percobaan per orang. Jangan
+    | dikecilkan banyak, firewall SIMAS memblokir permintaan beruntun.
+    */
+    'employee_sync' => [
+        'on_login' => env('REGISTRY_EMPLOYEE_SYNC_ON_LOGIN', true),
+        'interval_hours' => 24,
+        // Batas "Perbarui dari SIMAS" per admin per menit.
+        'manual_per_minute' => 10,
+    ],
+
+    /*
     | Peran yang boleh diajukan admin OPD lewat "Ajukan Petugas"
     | (MembershipRequestService). Disetujui admin Registry; persetujuan
     | memberi peran ini sekaligus menautkan pegawai ke OPD pengaju.

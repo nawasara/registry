@@ -9,7 +9,6 @@ use Livewire\Attributes\On;
 use Livewire\Component;
 use Nawasara\AuthPrimitives\Attributes\RequiresSudo;
 use Nawasara\AuthPrimitives\Traits\WithSudo;
-use Nawasara\Registry\Exceptions\PicMismatchException;
 use Nawasara\Registry\Exceptions\SimasHebatException;
 use Nawasara\Registry\Models\Asset;
 use Nawasara\Registry\Models\AssetAssignment;
@@ -52,16 +51,6 @@ class Pics extends Component
     public ?int $pickedOpdId = null;
 
     public ?int $pickedUserId = null;
-
-    /**
-     * A held-back primary assignment: SIMAS Hebat places this person in a
-     * different OPD than the one on file. #[Locked] because only the server
-     * may fill it — otherwise the browser could set it and skip the check.
-     *
-     * @var array{tercatat: string, simas: string, unit_kerja: string}|null
-     */
-    #[Locked]
-    public ?array $picMismatch = null;
 
     /** SIMAS was unreachable; the primary may be saved unverified once confirmed. */
     #[Locked]
@@ -110,7 +99,6 @@ class Pics extends Component
         $this->mode = '';
         $this->pickedOpdId = null;
         $this->pickedUserId = null;
-        $this->picMismatch = null;
         $this->picSimasError = null;
         $this->dispatch('pic-picker-reset');
     }
@@ -122,7 +110,6 @@ class Pics extends Component
         $this->pickedUserId = ($payload['pj_user_id'] ?? null) ?: null;
 
         // A fresh choice invalidates a held-back one.
-        $this->picMismatch = null;
         $this->picSimasError = null;
     }
 
@@ -138,18 +125,15 @@ class Pics extends Component
     }
 
     /**
-     * Save after the admin has seen a mismatch and chosen to move the person,
-     * or seen that SIMAS is down and chosen to proceed unverified.
+     * Save after the admin has seen that SIMAS is down and chosen to proceed
+     * unverified.
      */
     public function savePrimaryConfirmed(): void
     {
-        $this->savePrimaryInternal(
-            acceptMismatch: $this->picMismatch !== null,
-            allowWithoutSimas: $this->picSimasError !== null,
-        );
+        $this->savePrimaryInternal(allowWithoutSimas: $this->picSimasError !== null);
     }
 
-    protected function savePrimaryInternal(bool $acceptMismatch = false, bool $allowWithoutSimas = false): void
+    protected function savePrimaryInternal(bool $allowWithoutSimas = false): void
     {
         Gate::authorize('registry.asset.manage');
 
@@ -179,31 +163,24 @@ class Pics extends Component
         }
 
         try {
-            app(PicAssignmentService::class)->assign(
+            $result = app(PicAssignmentService::class)->assign(
                 asset: $asset,
                 user: $user,
                 opdId: $this->pickedOpdId,
-                acceptMismatch: $acceptMismatch,
                 allowWithoutSimas: $allowWithoutSimas,
             );
-        } catch (PicMismatchException $e) {
-            // Held, not resolved. Overwriting opd_id would revoke someone's
-            // access with nobody told, and if the matcher is what slipped,
-            // the access revoked is the correct one.
-            $this->picMismatch = [
-                'tercatat' => $e->recorded->name,
-                'simas' => $e->fromSimas?->name ?? $e->simasUnitKerja,
-                'unit_kerja' => $e->simasUnitKerja,
-            ];
-
-            return;
         } catch (SimasHebatException $e) {
             $this->picSimasError = $e->getMessage();
 
             return;
         }
 
-        $this->finishPrimary('PIC utama disimpan.');
+        // SIMAS Hebat is the official source, so a move is applied, not
+        // asked. Said out loud so the admin is not surprised by it.
+        $moved = $result['moved_from'] ?? null;
+        $this->finishPrimary($moved
+            ? "PIC utama disimpan. Keanggotaan orang ini dipindah dari {$moved->name} ke {$result['opd']->name} mengikuti SIMAS Hebat."
+            : 'PIC utama disimpan.');
     }
 
     #[RequiresSudo(reason: 'melepas PIC utama aset')]

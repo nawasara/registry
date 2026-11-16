@@ -89,6 +89,40 @@ class UnitKerjaMatcher
     }
 
     /**
+     * Match a SIMAS reply, preferring the split `skpd` + `unit` fields.
+     *
+     * Since 12 November 2026 SIMAS sends the OPD on its own (`skpd`), so the
+     * OPD must match it WHOLE: a prefix hit would let a registry entry
+     * "DINAS PENDIDIKAN" claim someone whose skpd is "DINAS PENDIDIKAN DAN
+     * KEBUDAYAAN". The sub-unit is `unit`, normalised the same way the prefix
+     * remainder always was, so units created before the split still match.
+     *
+     * Replies without `skpd` (older stored ones) fall back to the prefix match.
+     *
+     * @param  array{skpd?: ?string, unit?: ?string, unit_kerja?: ?string}  $simas
+     * @return array{opd: ?Opd, sub_unit: ?string, raw: string}
+     */
+    public function matchSimas(array $simas): array
+    {
+        $skpd = trim((string) ($simas['skpd'] ?? ''));
+
+        if ($skpd === '') {
+            return $this->match((string) ($simas['unit_kerja'] ?? ''));
+        }
+
+        $found = $this->match($skpd);
+        $opd = $found['opd'] !== null && $found['sub_unit'] === null ? $found['opd'] : null;
+
+        $unit = self::normalize((string) ($simas['unit'] ?? ''));
+
+        return [
+            'opd' => $opd,
+            'sub_unit' => $opd !== null && $unit !== '' ? $unit : null,
+            'raw' => $skpd,
+        ];
+    }
+
+    /**
      * Every OPD paired with the normalised name to match against.
      *
      * `simas_name` is preferred when set, since it is bound to the source's

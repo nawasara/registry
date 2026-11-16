@@ -32,6 +32,13 @@ return [
                 'navigate' => true,
             ],
             [
+                'label' => 'Data Pegawai',
+                'icon' => 'lucide-id-card',
+                'url' => url($prefix.'/employees'),
+                'permission' => 'registry.employee.view',
+                'navigate' => true,
+            ],
+            [
                 'label' => 'Pengajuan Petugas',
                 'icon' => 'lucide-user-plus',
                 'url' => url($prefix.'/membership-requests'),

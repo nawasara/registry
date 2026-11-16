@@ -6,7 +6,7 @@ Master data for the Nawasara superapp framework: organizational units (OPD), per
 
 - **OPD**: code, name, address, phone, email, plus `parent_id` for institutions that sit under another OPD
 - **Unit**: divisions inside an OPD ("BIDANG APLIKASI DAN INFORMATIKA")
-- **Employee**: employment data per user, sourced from SIMAS Hebat
+- **Employee**: employment data per user, sourced from SIMAS Hebat and refreshed at login (see "Employment data follows SIMAS Hebat")
 - **Membership**: which user belongs to which OPD, the relation other packages scope against
 - **Asset**: a generic ownership record keyed by `(package_ref, external_id)`. Other packages (Cloudflare DNS, WHM Account, Email account) write here with their canonical IDs so the dashboard can render an "OPD / PIC" column on every resource list and a single OPD detail page can show every asset they own
 - **Activity log**: every write is captured via `spatie/laravel-activitylog`
@@ -27,20 +27,25 @@ not a stale label.
 
 So one assignment does three things:
 
-1. refreshes the person's employment data (`nama_jabatan`, `jenis_jabatan`, `jenis_kepegawaian`, `simas_unit_kerja`)
+1. refreshes the person's employment data (`nama_jabatan`, `jenis_jabatan`, `jenis_kepegawaian`, `simas_skpd`, `simas_unit`)
 2. creates the OPD and sub-unit when the registry does not have them yet
 3. records the membership and writes the asset
 
 Three decisions in there are easy to reverse without knowing why they were
 made:
 
-**A mismatch is held, never resolved automatically.** When SIMAS places someone
-elsewhere, `PicMismatchException` is thrown and the screen shows both sides.
-Overwriting `opd_id` would revoke someone's access with nobody told, and if the
-prefix matcher is what slipped, the access revoked is the correct one.
+**SIMAS wins a mismatch, without asking.** Until v0.2.x a mismatch was held
+(`PicMismatchException`) for an admin to confirm. Since 16 November 2026 SIMAS
+Hebat is the official source of where an ASN works, so the membership simply
+follows it, the asset takes that OPD, and the screen says what moved. The
+move is written to the activity log ("Keanggotaan OPD dipindah mengikuti SIMAS
+Hebat") with the old OPD, the new one and the raw `skpd`.
 
-**It throws rather than returning a value.** A return value can be ignored
-without consequence; what hangs on this one is who may read an OPD's data.
+The worry behind the old rule was a matcher that slips. That is now handled at
+the matcher instead: `skpd` must equal an OPD's name **whole**
+(`UnitKerjaMatcher::matchSimas`), so "DINAS PENDIDIKAN" can no longer claim
+someone from "DINAS PENDIDIKAN DAN KEBUDAYAAN". Do not bring back a prefix
+match on `skpd`.
 
 **An OPD cannot be created without a SIMAS reply, and the reply is stored in
 the audit entry.** An OPD is a permission container. One born from an admin's
@@ -53,6 +58,13 @@ the audit entry marked unverified. Creating a new OPD does not: without a reply
 there is no basis for it.
 
 ### `unit_kerja` is matched by prefix, not split
+
+> Since 12 November 2026 SIMAS sends `skpd` and `unit` as separate fields and
+> no longer sends `unit_kerja`. `SimasHebatClient::parse()` reads the new shape
+> and rebuilds `unit_kerja` for old audit entries; `matchSimas()` matches
+> `skpd` whole. The prefix match below only runs for replies without `skpd`.
+> Before v0.3.0 the client still read `unit_kerja`, so every NIP lookup came
+> back with no OPD.
 
 SIMAS returns `<OPD NAME><space><SUB-UNIT>` with no separator, and OPD names
 themselves contain commas and the word "DAN":
@@ -126,6 +138,49 @@ asset form) passes its own event name, or both hosts react to every choice:
 ```blade
 <livewire:nawasara-registry.pic-picker event="backup-pic-selected" />
 ```
+
+## Employment data follows SIMAS Hebat
+
+`EmployeeSyncService` keeps each account's employment data and OPD membership in
+line with SIMAS Hebat. Three callers share it:
+
+| When | How often | Source tag |
+|---|---|---|
+| Login to Nawasara (`Login` event, queued job) | at most once per 24 h per person | `login` |
+| "Perbarui dari SIMAS" on **Data Pegawai** | 10 per admin per minute | `manual` |
+| Appointing a PIC | each time | `pic` |
+
+The **Data Pegawai** page (`/nawasara-registry/employees`) shows every account
+with a NIP: what SIMAS says, the matched OPD, when it was last synced and by
+which path, the assets they hold, and the history of OPD moves.
+
+Decisions that look like gaps but are not:
+
+- **No membership is created for someone who has none.** A membership is
+  access to an OPD's data. It is granted through Pengajuan Petugas or a PIC
+  appointment; SIMAS only moves an existing one.
+- **An `skpd` the registry does not know moves nothing.** There is nowhere to
+  move it to. The row is flagged ("OPD belum dikenal Registry"); register the
+  OPD or set its `simas_name`, then refresh.
+- **Assets do not move with their PIC.** A domain belongs to the OPD, not to the
+  person looking after it. The detail modal marks assets held by someone now in
+  another OPD ("Beda OPD") so a new PIC can be appointed.
+- **A deactivated membership stays deactivated** after a move. That was an
+  admin's decision, not SIMAS data.
+- **Not found / SIMAS down leaves the old data.** `simas_checked_at` records the
+  attempt, `simas_synced_at` only moves when data actually arrived, so "last
+  synced" never lies.
+- **Nawasara asks SIMAS itself instead of reading Keycloak.** Keycloak
+  (authenticator 2.4.0) stores the same data as `simas_*` user attributes, but
+  they are not in the token without extra mappers, and Nawasara accounts are
+  few enough that one lookup per person per day costs the source nothing.
+- **Throttled on purpose.** The SIMAS firewall blocks the calling IP after a
+  burst, and the block is total. A block page sets a one-hour back-off for every
+  path, and there is no "refresh everyone" button.
+
+Config: `nawasara-registry.employee_sync` (`on_login`, `interval_hours`,
+`manual_per_minute`). Set `REGISTRY_EMPLOYEE_SYNC_ON_LOGIN=false` to turn the
+login refresh off.
 
 ## Several PICs per asset
 
@@ -255,9 +310,11 @@ $assetMap = Asset::where('package_ref', 'whm')
 
 | Route | Permission |
 |-------|-----------|
-| `/admin/registry/opd` | `registry.opd.view` |
-| `/admin/registry/membership` | `registry.membership.view` |
-| `/admin/registry/asset` | `registry.asset.view` |
+| `/nawasara-registry/opd` | `registry.opd.view` |
+| `/nawasara-registry/assets` | `registry.asset.view` |
+| `/nawasara-registry/membership` | `registry.membership.manage` |
+| `/nawasara-registry/membership-requests` | `registry.membership.manage` |
+| `/nawasara-registry/employees` | `registry.employee.view` (refresh: `registry.employee.sync`) |
 
 ## API
 

@@ -56,31 +56,6 @@
                                 :opd-id="$pickedOpdId" :pj-user-id="$pickedUserId"
                                 :key="'primary-picker-'.$assetId" />
 
-                            @if ($picMismatch)
-                                {{-- Ditahan, bukan diperbaiki sendiri: yang dipertaruhkan
-                                     adalah siapa boleh melihat data OPD mana. --}}
-                                <div class="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-700/50 dark:bg-amber-900/30">
-                                    <p class="text-sm font-medium text-amber-800 dark:text-amber-200">OPD orang ini berbeda menurut SIMAS Hebat</p>
-                                    <dl class="space-y-1 text-xs">
-                                        <div class="flex gap-2">
-                                            <dt class="w-36 shrink-0 text-neutral-600 dark:text-neutral-400">Tercatat di Nawasara</dt>
-                                            <dd class="text-neutral-800 dark:text-neutral-100">{{ $picMismatch['tercatat'] }}</dd>
-                                        </div>
-                                        <div class="flex gap-2">
-                                            <dt class="w-36 shrink-0 text-neutral-600 dark:text-neutral-400">Menurut SIMAS Hebat</dt>
-                                            <dd class="text-neutral-800 dark:text-neutral-100">{{ $picMismatch['simas'] }}</dd>
-                                        </div>
-                                    </dl>
-                                    <p class="text-xs text-neutral-600 dark:text-neutral-400">
-                                        Kalau orang ini memang sudah pindah, lanjutkan untuk memindahkan
-                                        keanggotaannya. Perpindahan dicatat di log audit.
-                                    </p>
-                                    <x-nawasara-ui::button color="warning" size="sm" wire:click="savePrimaryConfirmed">
-                                        Pindahkan dan simpan
-                                    </x-nawasara-ui::button>
-                                </div>
-                            @endif
-
                             @if ($picSimasError)
                                 <div class="space-y-2 rounded-lg border border-gray-300 bg-gray-50 p-3 dark:border-neutral-600 dark:bg-neutral-800">
                                     <p class="text-sm text-neutral-800 dark:text-neutral-100">{{ $picSimasError }}</p>
@@ -102,7 +77,7 @@
                     @endif
 
                     <p class="text-xs text-neutral-500 dark:text-neutral-400">
-                        Menetapkan PIC utama ikut memeriksa SIMAS Hebat dan menyegarkan OPD orangnya.
+                        Menetapkan PIC utama ikut memeriksa SIMAS Hebat. Bila SIMAS menyebut OPD lain, keanggotaan orangnya ikut dipindah.
                     </p>
                 </section>
 

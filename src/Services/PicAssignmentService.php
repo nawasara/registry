@@ -3,7 +3,6 @@
 namespace Nawasara\Registry\Services;
 
 use Illuminate\Support\Facades\DB;
-use Nawasara\Registry\Exceptions\PicMismatchException;
 use Nawasara\Registry\Exceptions\SimasHebatException;
 use Nawasara\Registry\Models\Asset;
 use Nawasara\Registry\Models\Employee;
@@ -25,6 +24,11 @@ use Nawasara\Registry\Models\Unit;
  *   1. refresh employment data from SIMAS Hebat
  *   2. create the OPD and sub-unit when the registry does not have them
  *   3. record the membership and write the asset
+ *
+ * SIMAS Hebat is the official source (keputusan 16 November 2026). When it
+ * places the person in another OPD than the one on file, the membership
+ * follows SIMAS without asking; the move is logged and reported back so the
+ * screen can say so. EmployeeSyncService applies the same rule at login.
  *
  * A UI component alone could not guarantee this. Every screen ends at the same
  * `Asset` row, and anything writing it another way (a seeder, a sync job, a
@@ -60,7 +64,7 @@ class PicAssignmentService
         }
 
         $data = $this->simas->pegawai($nip);
-        $match = $this->matcher->match((string) $data['unit_kerja']);
+        $match = $this->matcher->matchSimas($data);
 
         return $data + [
             'opd' => $match['opd'],
@@ -71,19 +75,17 @@ class PicAssignmentService
     /**
      * Assign $user as PIC of $asset.
      *
-     * @param  int|null  $opdId          OPD the admin chose; null means "use what SIMAS says"
-     * @param  bool  $acceptMismatch     admin has seen the difference and chose to move them
+     * @param  int|null  $opdId          OPD the admin chose; used only when SIMAS
+     *                                   gives no recognised OPD (SIMAS wins otherwise)
      * @param  bool  $allowWithoutSimas  proceed when SIMAS is unreachable (existing OPD only)
-     * @return array{employee: ?Employee, opd: Opd, unit: ?Unit, simas: ?array}
+     * @return array{employee: ?Employee, opd: Opd, unit: ?Unit, simas: ?array, moved_from: ?Opd}
      *
-     * @throws PicMismatchException  when SIMAS places them elsewhere and $acceptMismatch is false
      * @throws SimasHebatException   when SIMAS fails and $allowWithoutSimas is false
      */
     public function assign(
         Asset $asset,
         $user,
         ?int $opdId = null,
-        bool $acceptMismatch = false,
         bool $allowWithoutSimas = false,
     ): array {
         $employee = Employee::firstWhere('user_id', $user->getAuthIdentifier());
@@ -112,15 +114,8 @@ class PicAssignmentService
                 ->where('aktif', true)
                 ->value('opd_id');
 
-        // SIMAS disagrees with what is on file: stop and let the admin decide.
-        if ($simasOpd && $recordedOpdId && (int) $recordedOpdId !== (int) $simasOpd->id && ! $acceptMismatch) {
-            throw new PicMismatchException(
-                recorded: Opd::findOrFail($recordedOpdId),
-                fromSimas: $simasOpd,
-                simasUnitKerja: (string) ($simasData['unit_kerja'] ?? ''),
-            );
-        }
-
+        // SIMAS is the official source: when it names a known OPD, that wins
+        // over both the admin's pick and the membership on file.
         $opd = $simasOpd
             ?? ($recordedOpdId ? Opd::findOrFail($recordedOpdId) : null);
 
@@ -134,15 +129,33 @@ class PicAssignmentService
             $unit = $this->findUnit($opd, $simasData['sub_unit']);
         }
 
-        return DB::transaction(function () use ($asset, $user, $opd, $unit, $simasData, $nip, $employee) {
+        return DB::transaction(function () use ($asset, $user, $opd, $simasOpd, $unit, $simasData, $nip, $employee) {
             if ($simasData) {
-                $employee = $this->refreshEmployee($user, $nip, $simasData, $unit, $employee);
+                // $simasOpd, not $opd: when SIMAS names an OPD the registry
+                // does not know, the admin's pick must not be recorded as what
+                // SIMAS said, or the "OPD belum dikenal" flag disappears.
+                $employee = $this->employees()->writeEmployee(
+                    $user, $nip, $simasData, $simasOpd, $unit, EmployeeSyncService::SOURCE_PIC,
+                );
             }
 
-            Membership::updateOrCreate(
+            $membership = Membership::where('user_id', $user->getAuthIdentifier())->lockForUpdate()->first();
+            $movedFrom = null;
+
+            if ($membership && (int) $membership->opd_id !== (int) $opd->id) {
+                $movedFrom = Opd::find($membership->opd_id);
+            }
+
+            $membership = Membership::updateOrCreate(
                 ['user_id' => $user->getAuthIdentifier()],
                 ['opd_id' => $opd->id, 'aktif' => true],
             );
+
+            if ($movedFrom && $simasData) {
+                $this->employees()->logMove(
+                    $membership, $movedFrom, $opd, (string) $nip, $simasData, EmployeeSyncService::SOURCE_PIC,
+                );
+            }
 
             $asset->forceFill([
                 'opd_id' => $opd->id,
@@ -168,6 +181,7 @@ class PicAssignmentService
                 'opd' => $opd,
                 'unit' => $unit,
                 'simas' => $simasData,
+                'moved_from' => $movedFrom,
             ];
         });
     }
@@ -258,7 +272,7 @@ class PicAssignmentService
             );
         }
 
-        $unit = Unit::firstOrCreate(
+        $unit = $this->findUnit($opd, $subUnit) ?? Unit::firstOrCreate(
             ['opd_id' => $opd->id, 'simas_name' => $subUnit],
             ['name' => trim((string) ($name ?: $subUnit))],
         );
@@ -281,44 +295,12 @@ class PicAssignmentService
     /** Existing sub-unit for this OPD, or null when it has not been created yet. */
     public function findUnit(Opd $opd, string $subUnit): ?Unit
     {
-        return Unit::where('opd_id', $opd->id)
-            ->where('simas_name', trim($subUnit))
-            ->first();
+        return $this->employees()->findUnit($opd, $subUnit);
     }
 
-    /**
-     * Write the employment fields back.
-     *
-     * ⚠️ `nip` is only ever written when the row does not have one yet. It is
-     * the key that links this person to their Keycloak account, where the
-     * username IS the NIP, so changing it cuts an account loose from its owner
-     * with no simple way back. A NIP that is genuinely wrong gets fixed at the
-     * source, not here.
-     */
-    protected function refreshEmployee($user, ?string $nip, array $simasData, ?Unit $unit, ?Employee $employee): Employee
+    private function employees(): EmployeeSyncService
     {
-        $employee ??= new Employee(['user_id' => $user->getAuthIdentifier()]);
-
-        $employee->fill([
-            'nama_jabatan' => $simasData['nama_jabatan'],
-            'jenis_jabatan' => $simasData['jenis_jabatan'],
-            'jenis_kepegawaian' => $simasData['jenis_kepegawaian'],
-            'simas_unit_kerja' => $simasData['unit_kerja'],
-            'simas_synced_at' => now(),
-        ]);
-
-        if ($unit) {
-            $employee->unit_id = $unit->id;
-        }
-
-        if ($employee->nip === null && $nip !== null) {
-            $employee->nip = $nip;
-        }
-
-        $employee->user_id = $user->getAuthIdentifier();
-        $employee->save();
-
-        return $employee;
+        return new EmployeeSyncService($this->simas, $this->matcher);
     }
 
     /**

@@ -10,9 +10,10 @@ use Spatie\Activitylog\Traits\LogsActivity;
 /**
  * Employment data for one user, sourced from SIMAS Hebat.
  *
- * Refreshed when a PIC is assigned, not on a schedule: SIMAS Hebat has no
- * "list employees" endpoint, only a per-NIP lookup, so there is nothing to
- * sync from. See docs/plan/plan-sinkronisasi-pegawai-simashebat.md.
+ * Refreshed at login (at most once per interval), from the "Perbarui dari
+ * SIMAS" action, and when a PIC is assigned. Never on a schedule: SIMAS Hebat
+ * has no "list employees" endpoint and its firewall blocks bursts. All writes
+ * go through EmployeeSyncService.
  */
 class Employee extends Model
 {
@@ -29,10 +30,19 @@ class Employee extends Model
         'unit_id',
         'simas_unit_kerja',
         'simas_synced_at',
+        'simas_nama',
+        'simas_skpd',
+        'simas_unit',
+        'simas_opd_id',
+        'simas_status',
+        'simas_error',
+        'simas_source',
+        'simas_checked_at',
     ];
 
     protected $casts = [
         'simas_synced_at' => 'datetime',
+        'simas_checked_at' => 'datetime',
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -41,6 +51,7 @@ class Employee extends Model
             ->logOnly([
                 'nip', 'nama_jabatan', 'jenis_jabatan',
                 'jenis_kepegawaian', 'unit_id', 'simas_unit_kerja',
+                'simas_skpd', 'simas_unit', 'simas_opd_id',
             ])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
@@ -55,6 +66,12 @@ class Employee extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class, 'unit_id');
+    }
+
+    /** The registry OPD that SIMAS `skpd` matched; null when not recognised. */
+    public function simasOpd(): BelongsTo
+    {
+        return $this->belongsTo(Opd::class, 'simas_opd_id');
     }
 
     /**

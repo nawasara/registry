@@ -4,7 +4,7 @@
  * Yang dipalsukan hanya SIMAS Hebat-nya.
  *
  * Yang diuji: apakah aturannya BERLAKU, bukan apakah kodenya jalan.
- *  - mutasi tertahan, tidak ditimpa diam-diam
+ *  - mutasi mengikuti SIMAS (sumber resmi), tercatat di audit
  *  - OPD tak bisa lahir tanpa jawaban SIMAS
  *  - NIP tidak pernah ditimpa
  *  - jejak audit memuat jawaban SIMAS
@@ -26,7 +26,6 @@ $app->make('db')->setDefaultConnection('uji');
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Nawasara\Registry\Exceptions\PicMismatchException;
 use Nawasara\Registry\Exceptions\SimasHebatException;
 use Nawasara\Registry\Models\Asset;
 use Nawasara\Registry\Models\Employee;
@@ -70,6 +69,10 @@ Schema::create('nawasara_registry_employees', function ($t) {
     $t->string('nama_jabatan')->nullable(); $t->string('jenis_jabatan', 64)->nullable();
     $t->string('jenis_kepegawaian', 32)->nullable(); $t->foreignId('unit_id')->nullable();
     $t->string('simas_unit_kerja')->nullable(); $t->timestamp('simas_synced_at')->nullable();
+    $t->string('simas_nama')->nullable(); $t->string('simas_skpd')->nullable(); $t->string('simas_unit')->nullable();
+    $t->foreignId('simas_opd_id')->nullable(); $t->string('simas_status', 16)->nullable();
+    $t->string('simas_error')->nullable(); $t->string('simas_source', 16)->nullable();
+    $t->timestamp('simas_checked_at')->nullable();
     $t->timestamps();
 });
 Schema::create('nawasara_registry_memberships', function ($t) {
@@ -84,6 +87,8 @@ Schema::create('nawasara_registry_assets', function ($t) {
     $t->text('notes')->nullable(); $t->timestamp('discovered_at')->nullable();
     $t->timestamps();
 });
+
+(require $root.'/packages/nawasara-registry/database/migrations/2026_10_30_100001_create_nawasara_registry_asset_assignments_table.php')->up();
 
 // ---- data awal ----
 $kominfo = Opd::create(['code' => 'DISKOMINFO', 'name' => 'DINAS KOMUNIKASI, INFORMATIKA DAN STATISTIK']);
@@ -144,37 +149,35 @@ $cek('memuat jawaban SIMAS mentah', isset($props['simas']['unit_kerja']), 'props
 $cek('memuat NIP', ($props['nip'] ?? null) === '199506142020121004');
 $cek('menandai sudah diverifikasi', ($props['diverifikasi_simas'] ?? null) === true);
 
-echo "\n=== MUTASI: SIMAS bilang orang ini sudah pindah ===\n";
+echo "\n=== MUTASI: SIMAS menyebut OPD lain -> keanggotaan ikut pindah ===\n";
 $jawabDindik = $jawabKominfo;
 $jawabDindik['unit_kerja'] = 'DINAS PENDIDIKAN BIDANG SMP';
 $svc2 = new PicAssignmentService(new SimasPalsu($jawabDindik), new UnitKerjaMatcher);
 
 $aset2 = Asset::create(['package_ref' => 'uji', 'external_id' => 'a2', 'type' => 'domain', 'identifier' => 'y.id']);
-$tertahan = false;
-try {
-    $svc2->assign($aset2, $u1);
-} catch (PicMismatchException $e) {
-    $tertahan = true;
-    echo "  pesan: {$e->getMessage()}\n";
-    $cek('menyebut OPD tercatat', $e->recorded->id === $kominfo->id);
-    $cek('menyebut OPD menurut SIMAS', $e->fromSimas?->id === $dindik->id);
-}
-$cek('penetapan TERTAHAN, tidak diam-diam dipindah', $tertahan);
-$cek('keanggotaan BELUM berubah', Membership::where('user_id', 1)->value('opd_id') == $kominfo->id);
-$cek('aset kedua belum punya PIC', $aset2->fresh()->pj_user_id === null);
-
-echo "\n=== admin menyetujui perpindahan ===\n";
-$svc2->assign($aset2, $u1, acceptMismatch: true);
+$hasil2 = $svc2->assign($aset2, $u1);
+$cek('tidak ada pertanyaan, langsung jadi', (int) $aset2->fresh()->pj_user_id === 1);
 $cek('keanggotaan pindah ke Dindik', Membership::where('user_id', 1)->value('opd_id') == $dindik->id);
 $cek('hanya SATU keanggotaan (bukan dua)', Membership::where('user_id', 1)->count() === 1);
-$cek('aset kedua kini ber-PIC', (int) $aset2->fresh()->pj_user_id === 1);
+$cek('hasil menyebut asal perpindahan', ($hasil2['moved_from'] ?? null)?->id === $kominfo->id);
+$logPindah = DB::table('activity_log')->where('description', 'Keanggotaan OPD dipindah mengikuti SIMAS Hebat')->first();
+$propsPindah = json_decode($logPindah->properties ?? '{}', true);
+$cek('perpindahan tercatat di audit', $logPindah !== null);
+$cek('audit menyebut dari dan ke', ($propsPindah['dari'] ?? null) === $kominfo->name && ($propsPindah['ke'] ?? null) === $dindik->name);
+$cek('audit menyebut sumber pic', ($propsPindah['sumber'] ?? null) === 'pic');
+$cek('aset pertama TIDAK ikut pindah', (int) $asset->fresh()->opd_id === $kominfo->id);
+
+echo "\n=== pilihan admin kalah oleh SIMAS ===\n";
+$asetPilih = Asset::create(['package_ref' => 'uji', 'external_id' => 'a2b', 'type' => 'domain', 'identifier' => 'yb.id']);
+$svc2->assign($asetPilih, $u1, opdId: $kominfo->id);
+$cek('OPD aset mengikuti SIMAS, bukan pilihan admin', (int) $asetPilih->fresh()->opd_id === $dindik->id);
 
 echo "\n=== NIP tidak pernah ditimpa ===\n";
 $empSebelum = Employee::firstWhere('user_id', 1)->nip;
 $jawabLain = $jawabDindik;
 $svc3 = new PicAssignmentService(new SimasPalsu($jawabLain), new UnitKerjaMatcher);
 $aset3 = Asset::create(['package_ref' => 'uji', 'external_id' => 'a3', 'type' => 'domain', 'identifier' => 'z.id']);
-$svc3->assign($aset3, $u1, acceptMismatch: true);
+$svc3->assign($aset3, $u1);
 $cek('NIP tetap sama', Employee::firstWhere('user_id', 1)->nip === $empSebelum, 'sebelum='.$empSebelum.' sesudah='.Employee::firstWhere('user_id', 1)->nip);
 
 echo "\n=== OPD TIDAK BISA lahir tanpa jawaban SIMAS ===\n";
@@ -221,6 +224,21 @@ $unit1 = $svc->createUnitFromSimas($kominfo, $jawabKominfo, 'BIDANG APLIKASI DAN
 $unit2 = $svc->createUnitFromSimas($kominfo, $jawabKominfo, 'BIDANG APLIKASI DAN INFORMATIKA');
 $cek('tidak terbuat dua kali', $unit1->id === $unit2->id);
 $cek('unit tercatat', Unit::where('opd_id', $kominfo->id)->count() === 1);
+
+echo "
+=== SKPD tak dikenal + admin memilih OPD: simas_opd_id tetap kosong ===
+";
+$jawabAsing = $jawabKominfo;
+unset($jawabAsing['unit_kerja']);
+$jawabAsing['skpd'] = 'BADAN YANG BELUM TERDAFTAR';
+$jawabAsing['unit'] = 'BIDANG X';
+$svcAsing = new PicAssignmentService(new SimasPalsu($jawabAsing), new UnitKerjaMatcher);
+$asetAsing = Asset::create(['package_ref' => 'uji', 'external_id' => 'a6', 'type' => 'domain', 'identifier' => 'u.id']);
+$svcAsing->assign($asetAsing, $u1, opdId: $kominfo->id);
+$empAsing = Employee::firstWhere('user_id', 1);
+$cek('aset memakai pilihan admin', (int) $asetAsing->fresh()->opd_id === $kominfo->id);
+$cek('simas_opd_id kosong (bukan pilihan admin)', $empAsing->simas_opd_id === null, 'dapat: '.var_export($empAsing->simas_opd_id, true));
+$cek('skpd mentah tersimpan', $empAsing->simas_skpd === 'BADAN YANG BELUM TERDAFTAR');
 
 echo "\n=== orang tanpa NIP: tidak dipanggilkan ke SIMAS ===\n";
 $u2 = $user->newQuery()->find(2);

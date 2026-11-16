@@ -457,7 +457,13 @@ class PicPicker extends Component
         // So the split is guessed here, from the words that introduce a
         // sub-unit. The guess is visible and editable; what it prevents is the
         // whole string being kept by default.
-        [$opdPart, $subPart] = $this->guessSplit($unitKerja);
+        //
+        // Since 12 November 2026 SIMAS sends `skpd` and `unit` apart, so there
+        // is nothing to guess when they are present.
+        $skpd = trim((string) ($found['skpd'] ?? ''));
+        [$opdPart, $subPart] = $skpd !== ''
+            ? [$skpd, trim((string) ($found['unit'] ?? ''))]
+            : $this->guessSplit($unitKerja);
 
         $this->newOpdSimasName = $opdPart;
         $this->newOpdName = $opdPart;
@@ -549,13 +555,16 @@ class PicPicker extends Component
         }
 
         $unitKerja = trim((string) ($found['unit_kerja'] ?? ''));
+        $skpd = trim((string) ($found['skpd'] ?? ''));
+        $opdPart = $skpd !== '' ? $skpd : $unitKerja;
+        $subPart = $skpd !== '' ? trim((string) ($found['unit'] ?? '')) : '';
 
         $this->updateFound(['opd' => null]);
-        $this->newOpdSimasName = $unitKerja;
-        $this->newOpdName = $unitKerja;
-        $this->newOpdCode = $this->suggestCode($unitKerja);
-        $this->newUnitSimasName = '';
-        $this->newUnitName = '';
+        $this->newOpdSimasName = $opdPart;
+        $this->newOpdName = $opdPart;
+        $this->newOpdCode = $this->suggestCode($opdPart);
+        $this->newUnitSimasName = $subPart;
+        $this->newUnitName = $subPart;
         $this->newOpdParentId = null;
     }
 

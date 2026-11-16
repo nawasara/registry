@@ -19,6 +19,8 @@ class PermissionSeeder extends Seeder
             'registry.asset.manage',
             'registry.export.use',
             'registry.membership.manage', // link users to their OPD (cross-package)
+            'registry.employee.view',     // Data Pegawai: profil SIMAS + terakhir sinkron
+            'registry.employee.sync',     // tombol "Perbarui dari SIMAS"
         ];
 
         foreach ($permissions as $permission) {

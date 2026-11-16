@@ -6,6 +6,7 @@ use Nawasara\Registry\Livewire\Opd\Form as OpdForm;
 use Nawasara\Registry\Livewire\Asset\Index as AssetIndex;
 use Nawasara\Registry\Livewire\Membership\Index as MembershipIndex;
 use Nawasara\Registry\Livewire\MembershipRequest\Index as MembershipRequestIndex;
+use Nawasara\Registry\Livewire\Employee\Index as EmployeeIndex;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 
 Route::middleware(['web', 'auth'])->prefix('nawasara-registry')->group(function () {
@@ -28,6 +29,11 @@ Route::middleware(['web', 'auth'])->prefix('nawasara-registry')->group(function 
     Route::get('membership', MembershipIndex::class)
         ->middleware(PermissionMiddleware::using('registry.membership.manage'))
         ->name('nawasara-registry.membership.index');
+
+    // Data kepegawaian dari SIMAS Hebat + tombol memperbaruinya.
+    Route::get('employees', EmployeeIndex::class)
+        ->middleware(PermissionMiddleware::using('registry.employee.view'))
+        ->name('nawasara-registry.employee.index');
 
     // Pengajuan petugas dari admin OPD (panel GO) — disetujui di sini.
     Route::get('membership-requests', MembershipRequestIndex::class)

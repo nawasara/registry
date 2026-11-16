@@ -15,8 +15,12 @@ use Nawasara\Vault\Facades\Vault;
  * paging, so Nawasara cannot pull a directory from here: it can only enrich
  * someone whose NIP it already knows. That shapes everything above this class.
  *
- * The reply is exactly five fields:
- *   nama_lengkap, nama_jabatan, jenis_jabatan, unit_kerja, jenis_kepegawaian
+ * The reply has six fields inside `data` (since 12 November 2026):
+ *   nama_lengkap, nama_jabatan, jenis_jabatan, skpd, unit, jenis_kepegawaian
+ *
+ * Before that `skpd` and `unit` arrived glued together as `unit_kerja`.
+ * `unit_kerja` is still returned, rebuilt from the two, because the audit
+ * trail and the stored rows of older assignments use that key.
  *
  * ⚠️ NO RETRY, deliberately. The source firewall blocks the calling IP after a
  * few requests, and a block is total: NIPs that answered a moment ago start
@@ -58,7 +62,7 @@ class SimasHebatClient
     /**
      * Fetch employment data for one NIP.
      *
-     * @return array{nama_lengkap: string, nama_jabatan: ?string, jenis_jabatan: ?string, unit_kerja: ?string, jenis_kepegawaian: ?string}
+     * @return array{nama_lengkap: string, nama_jabatan: ?string, jenis_jabatan: ?string, skpd: ?string, unit: ?string, unit_kerja: ?string, jenis_kepegawaian: ?string}
      *
      * @throws SimasHebatException
      */
@@ -110,7 +114,25 @@ class SimasHebatClient
             throw SimasHebatException::unexpectedShape();
         }
 
-        // Some replies wrap the record in `data`.
+        return static::parse($data, $nip);
+    }
+
+    /**
+     * Turn a decoded reply into the fields Nawasara uses.
+     *
+     * Public and static so the parsing can be tested against real replies
+     * without an HTTP call.
+     *
+     * @throws SimasHebatException  when the reply says the NIP is unknown
+     */
+    public static function parse(array $data, string $nip): array
+    {
+        // `{message, access: false}` is the current "no such NIP".
+        if (array_key_exists('access', $data) && $data['access'] === false) {
+            throw SimasHebatException::notFound($nip);
+        }
+
+        // Replies wrap the record in `data`.
         if (isset($data['data']) && is_array($data['data'])) {
             $data = $data['data'];
         }
@@ -121,12 +143,19 @@ class SimasHebatClient
             throw SimasHebatException::notFound($nip);
         }
 
+        $skpd = static::cleanOrNull($data['skpd'] ?? null);
+        $unit = static::cleanOrNull($data['unit'] ?? null);
+        $unitKerja = static::cleanOrNull($data['unit_kerja'] ?? null)
+            ?? static::cleanOrNull(trim(($skpd ?? '').' '.($unit ?? '')));
+
         return [
             'nama_lengkap' => $nama,
-            'nama_jabatan' => $this->cleanOrNull($data['nama_jabatan'] ?? null),
-            'jenis_jabatan' => $this->cleanOrNull($data['jenis_jabatan'] ?? null),
-            'unit_kerja' => $this->cleanOrNull($data['unit_kerja'] ?? null),
-            'jenis_kepegawaian' => $this->cleanOrNull($data['jenis_kepegawaian'] ?? null),
+            'nama_jabatan' => static::cleanOrNull($data['nama_jabatan'] ?? null),
+            'jenis_jabatan' => static::cleanOrNull($data['jenis_jabatan'] ?? null),
+            'skpd' => $skpd,
+            'unit' => $unit,
+            'unit_kerja' => $unitKerja,
+            'jenis_kepegawaian' => static::cleanOrNull($data['jenis_kepegawaian'] ?? null),
         ];
     }
 
@@ -174,7 +203,7 @@ class SimasHebatClient
             || str_starts_with(ltrim($body), '<');
     }
 
-    private function cleanOrNull(mixed $value): ?string
+    private static function cleanOrNull(mixed $value): ?string
     {
         if (! is_string($value)) {
             return null;

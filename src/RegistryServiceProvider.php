@@ -18,6 +18,13 @@ class RegistryServiceProvider extends ServiceProvider
         $this->registerLivewire();
         $this->offerPublishing();
 
+        // Data kepegawaian ikut diperbarui saat login. Event bawaan Laravel,
+        // jadi nawasara-core tidak perlu tahu soal registry.
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Events\Login::class,
+            Listeners\QueueEmployeeSyncOnLogin::class,
+        );
+
         // Scope didaftarkan sebelum routes: UI token memfilter scope yang
         // tidak ter-register, jadi lupa mendaftarkan berarti scope-nya tidak
         // bisa diberikan ke token mana pun — diam-diam.
@@ -98,6 +105,15 @@ class RegistryServiceProvider extends ServiceProvider
         //
         // `fromVault()` memulangkan null saat kosong, dan PicAssignmentService
         // menjawabnya dengan pesan "belum diatur" hanya ketika NIP dicari.
+        $this->app->bind(Services\EmployeeSyncService::class, function () {
+            // Same reasoning as below: a missing Vault entry must not break
+            // login. sync() reports "not configured" only when it is called.
+            return new Services\EmployeeSyncService(
+                Services\SimasHebatClient::fromVault(),
+                new Services\UnitKerjaMatcher,
+            );
+        });
+
         $this->app->bind(Services\PicAssignmentService::class, function () {
             return new Services\PicAssignmentService(
                 Services\SimasHebatClient::fromVault(),
